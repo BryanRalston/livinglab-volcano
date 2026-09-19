@@ -107,14 +107,14 @@
 
   <p class="hint" id="arHint">
     Tap <strong>Place on table (AR)</strong> — stays in this page when WebXR is available.
-    Place the ready bowl + cups, then Erupt: soda pour → vinegar → foam (loops). No 3D mesh.
+    Place the bowl, then Erupt for the foam eruption (loops). No 3D mesh.
   </p>
 
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=cups1"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=foam2"
       alt="Bowl-scale baking soda volcano"
       camera-controls
       touch-action="pan-y"
@@ -126,7 +126,7 @@
       reveal="auto"
     ></model-viewer>
     <div class="overlay">
-      <video id="clip" playsinline muted loop poster="assets/keyed/eruption_frame0.png?v=cups1"></video>
+      <video id="clip" playsinline muted loop poster="assets/keyed/eruption_frame0.png?v=foam2"></video>
       <img id="clipWebp" alt="Volcano erupting foam">
     </div>
   </div>
@@ -190,11 +190,11 @@
     const arEruptBtn = document.getElementById("arEruptBtn");
     const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=cups1";
-    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=cups1";
-    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=cups1";
-    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=cups1";
-    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=cups1";
+    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=foam2";
+    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=foam2";
+    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=foam2";
+    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=foam2";
+    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=foam2";
 
     let mode = "video";
     let lessonTimer = 0;
@@ -272,7 +272,7 @@
       arVideo.crossOrigin = "anonymous";
       arVideo.setAttribute("playsinline", "");
       arVideo.preload = "auto";
-      arVideo.src = WEBM; // pre-keyed black matte
+      arVideo.src = WEBM; // pre-keyed foam clip
       arVideo.load();
 
       arVideoTex = new THREE.VideoTexture(arVideo);
@@ -280,51 +280,20 @@
       arVideoTex.minFilter = THREE.LinearFilter;
       arVideoTex.magFilter = THREE.LinearFilter;
 
-      // In-engine chroma key ΓåÆ black/transparent plate for Cut Room (not raw greenscreen)
-      const mat = new THREE.ShaderMaterial({
+      // Place still uses real alpha PNG + alphaTest (Bryan Much-better path)
+      const mat = new THREE.MeshBasicMaterial({
         transparent: true,
+        alphaTest: 0.25,
+        side: THREE.DoubleSide,
         depthTest: true,
         depthWrite: false,
-        side: THREE.DoubleSide,
-        uniforms: {
-          map: { value: null },
-          keyColor: { value: new THREE.Color(0.0, 0.0, 0.0) }, // black matte // black matte
-          similarity: { value: 0.08 }, // black matte threshold // black matte threshold
-          smoothness: { value: 0.06 },
-        },
-        vertexShader: `
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          uniform sampler2D map;
-          uniform vec3 keyColor;
-          uniform float similarity;
-          uniform float smoothness;
-          varying vec2 vUv;
-          void main() {
-            vec4 texColor = texture2D(map, vUv);
-            float dist = distance(texColor.rgb, keyColor);
-            float alpha = smoothstep(similarity, similarity + smoothness, dist);
-            float g = texColor.g;
-            float rb = max(texColor.r, texColor.b);
-            if (g > rb + 0.05 && dist < similarity + smoothness * 2.0) {
-              alpha *= smoothstep(0.0, 0.15, g - rb);
-            }
-            if (alpha < 0.08) discard;
-            gl_FragColor = vec4(texColor.rgb, alpha);
-          }
-        `,
+        opacity: 1,
       });
-
       const foamW = 0.28;
       const foamH = 0.32;
       const geo = new THREE.PlaneGeometry(foamW, foamH);
       arVideoMesh = new THREE.Mesh(geo, mat);
-      arVideoMesh.position.set(0, foamH / 2 + 0.001, 0);
+      arVideoMesh.position.set(0, foamH / 2 + 0.004, 0);
       arVideoMesh.renderOrder = 10;
       arVideoMesh.visible = false;
 
@@ -332,13 +301,16 @@
       texLoader.setCrossOrigin("anonymous");
       texLoader.load(STILL, (tex) => {
         tex.colorSpace = THREE.SRGBColorSpace;
+        tex.premultiplyAlpha = true;
         arStillTex = tex;
-        mat.uniforms.map.value = arStillTex;
+        mat.map = arStillTex;
+        mat.transparent = true;
+        mat.alphaTest = 0.25;
         mat.needsUpdate = true;
       }, undefined, () => {
         const tryStill = () => {
           try { arVideo.currentTime = 0.001; } catch (_) {}
-          mat.uniforms.map.value = arVideoTex;
+          mat.map = arVideoTex;
           mat.needsUpdate = true;
         };
         if (arVideo.readyState >= 1) tryStill();
@@ -436,7 +408,7 @@
         reticle.visible = false;
         arPlaceBtn.hidden = true;
         arEruptBtn.hidden = false;
-        setMsg("Placed — ready bowl + cups on the table. Tap Erupt foam for soda pour → vinegar → foam.");
+        setMsg("Placed — bowl on the table. Tap Erupt foam to bring it alive.");
       };
 
             arEruptBtn.onclick = async () => {
@@ -449,7 +421,7 @@
         arVideo.loop = true;
         arVideo.currentTime = 0;
         try { await arVideo.play(); } catch (e) { console.warn(e); }
-        setMsg("Pouring soda → vinegar → foam (loops). Exit AR for Why + quiz.");
+        setMsg("Foam erupting (loops). Exit AR for Why + quiz.");
         lessonTimer = setTimeout(revealLesson, 20000);
       };
 arExitBtn.onclick = () => session.end();
