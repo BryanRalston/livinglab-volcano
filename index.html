@@ -6,14 +6,22 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Kitchen Volcano — Living Lab</title>
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
   <style>
     :root {
       --ink: #1a140f;
       --paper: #f6efe4;
-      --foam: #f4f7fb;
       --acid: #c45c26;
       --ok: #2f6f3e;
       --line: #d7cbb8;
+      --ar: #0b5fff;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: "Segoe UI", system-ui, sans-serif; }
@@ -22,51 +30,38 @@
     header p { margin: 0 0 10px; font-size: .92rem; opacity: .8; }
     .stage {
       position: relative;
-      height: min(62vh, 480px);
+      height: min(58vh, 440px);
       border-radius: 16px;
       overflow: hidden;
-      background:
-        linear-gradient(180deg, #cfe7ff 0%, #e9d7b8 55%, #c4a574 56%, #8a6a3d 100%);
+      background: linear-gradient(180deg, #cfe7ff 0%, #e9d7b8 55%, #c4a574 56%, #8a6a3d 100%);
       border: 1px solid var(--line);
-      perspective: 700px;
     }
     .table {
       position: absolute; left: -10%; right: -10%; bottom: 0; height: 46%;
-      transform: rotateX(62deg);
-      transform-origin: top center;
+      transform: rotateX(62deg); transform-origin: top center;
       background: repeating-linear-gradient(90deg, #b8894e 0 18px, #a6783e 18px 36px);
       box-shadow: 0 -8px 24px rgba(0,0,0,.18);
     }
     model-viewer {
       position: absolute; inset: 0; width: 100%; height: 100%;
-      --poster-color: transparent;
-      background: transparent;
+      --poster-color: transparent; background: transparent;
     }
-    .overlay {
-      position: absolute; inset: 0; display: grid; place-items: center;
-      pointer-events: none;
+    .overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+    #clip, #clipWebp {
+      width: min(92%, 420px); height: auto; max-height: 92%;
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,.28)); display: none;
     }
-    #clip, #clipCanvas, #clipWebp {
-      width: min(92%, 420px);
-      height: auto;
-      max-height: 92%;
-      filter: drop-shadow(0 10px 18px rgba(0,0,0,.28));
-      display: none;
-    }
-    #clipCanvas { background: transparent; }
-    #clip.use-video,
-    #clipWebp.use-img { display: block; }
-    .playing #clipCanvas.use-canvas { display: block; }
+    #clip.use-video, #clipWebp.use-img { display: block; }
     .playing model-viewer { opacity: 0; }
-    .btns { display: flex; gap: 8px; margin: 12px 0; }
+    .btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
     button {
       flex: 1; min-height: 48px; border: 0; border-radius: 12px;
-      font-size: 1.05rem; font-weight: 650; cursor: pointer;
+      font-size: 1.02rem; font-weight: 650; cursor: pointer; min-width: 42%;
     }
     .erupt { background: var(--acid); color: #fff; }
-    .ar-cta { background: #0b5fff; color: #fff; font-weight: 700; }
-    .ar-cta:disabled { opacity: .55; }
     .replay { background: var(--ink); color: #fff; }
+    .ar-cta { background: var(--ar); color: #fff; font-weight: 700; flex-basis: 100%; }
+    .ar-cta:disabled { opacity: .55; }
     .why, .quiz {
       background: #fff; border: 1px solid var(--line); border-radius: 14px;
       padding: 14px 14px 12px; margin: 10px 0; display: none;
@@ -75,7 +70,7 @@
     .why h2, .quiz h2 { font-size: 1rem; margin: 0 0 6px; }
     .why p { margin: 0; line-height: 1.4; }
     .quiz label {
-      display: block; padding: 10px 10px; border: 1px solid var(--line);
+      display: block; padding: 10px; border: 1px solid var(--line);
       border-radius: 10px; margin: 8px 0; background: var(--paper);
     }
     .quiz button.check { width: 100%; background: var(--ok); color: #fff; margin-top: 6px; }
@@ -83,55 +78,62 @@
     .mat { margin-top: 16px; font-size: .9rem; }
     .mat img { width: 100%; border: 1px solid var(--line); border-radius: 10px; }
     a { color: var(--acid); }
-    .hint { font-size: .82rem; opacity: .75; margin: 0 0 8px; }
+    .hint { font-size: .82rem; opacity: .8; margin: 0 0 8px; line-height: 1.35; }
+    #arCanvas {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      display: none; z-index: 40; background: #000; touch-action: none;
+    }
+    #arHud {
+      position: fixed; left: 12px; right: 12px; bottom: calc(16px + env(safe-area-inset-bottom));
+      z-index: 50; display: none; gap: 8px; flex-direction: column;
+    }
+    #arHud.show { display: flex; }
+    #arHud .msg {
+      background: rgba(0,0,0,.62); color: #fff; padding: 10px 12px;
+      border-radius: 12px; font-size: .92rem; text-align: center;
+    }
+    #arHud .row { display: flex; gap: 8px; }
+    #arHud button { flex: 1; min-height: 48px; border: 0; border-radius: 12px; font-weight: 700; }
+    #arHud .place { background: #0b5fff; color: #fff; }
+    #arHud .done { background: #2f6f3e; color: #fff; }
+    #arHud .exit { background: #fff; color: #111; }
   </style>
 </head>
 <body>
   <header>
     <h1>Kitchen Volcano</h1>
-    <p>Place it. Erupt it. Then say why the foam happened.</p>
+    <p>Place it on the table. Watch the foam. Then say why.</p>
   </header>
 
-  <p class="hint">Tip: print the lab mat, or just put the volcano on the floor / table.</p>
+  <p class="hint" id="arHint">
+    On Samsung Chrome: tap <strong>Place on table (AR)</strong> — stays in this page (WebXR).
+    Point at your table, tap to place, then the Imagine foam erupts from the crater.
+  </p>
 
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano.glb?v=maskorient1"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr1"
       alt="Bowl-scale baking soda volcano"
-      ar
-      ar-modes="scene-viewer webxr"
-      ar-placement="floor"
-      orientation="0deg 0deg 0deg"
-      ar-scale="fixed"
       camera-controls
       touch-action="pan-y"
       shadow-intensity="1"
       exposure="1.05"
-      camera-orbit="25deg 70deg 0.55m"
+      camera-orbit="30deg 65deg 0.85m"
       field-of-view="28deg"
-      min-camera-orbit="auto auto 0.35m"
-      max-camera-orbit="auto auto 1.2m"
+      orientation="0deg 0deg 0deg"
       reveal="auto"
-      animation-name="Erupt"
-      autoplay
-    >
-      <button slot="ar-button" id="arSlotBtn" type="button" class="ar-cta" style="position:absolute;left:12px;right:12px;bottom:12px;width:auto;z-index:5;">
-        Place on table (AR)
-      </button>
-    </model-viewer>
+    ></model-viewer>
     <div class="overlay">
       <video id="clip" playsinline muted poster="assets/keyed/sample_0000.png"></video>
-      <img id="clipWebp" alt="Volcano erupting foam in a cereal bowl">
-      <canvas id="clipCanvas" width="720" height="532"></canvas>
+      <img id="clipWebp" alt="Volcano erupting foam">
     </div>
   </div>
 
-    <p class="hint" id="arHint">On Samsung: tap <strong>Place on table (AR)</strong>. AR: volcano should stand upright (crater up); Imagine foam rises from the crater. On this page, Erupt still plays the full keyed video + Why + quiz. If AR fails to load, tell us — we have a safe fallback. Then come back for Why + quiz.</p>
   <div class="btns">
     <button class="ar-cta" id="arBtn" type="button">Place on table (AR)</button>
-    <button class="erupt" id="eruptBtn" type="button">Erupt</button>
+    <button class="erupt" id="eruptBtn" type="button">Erupt (on page)</button>
     <button class="replay" id="replayBtn" type="button">Replay</button>
   </div>
 
@@ -153,26 +155,47 @@
   </section>
 
   <section class="mat">
-    <strong>Printed lab mat</strong> (optional — floor is fine)
-    <p><a href="assets/lab-mat.png" download>Download / print lab-mat.png</a> · lay it on the table · set the volcano on the black circle.</p>
-    <img src="assets/lab-mat.png" alt="Printable lab mat with a circle that says set bowl here">
+    <strong>Printed lab mat</strong> (optional — table is fine)
+    <p><a href="assets/lab-mat.png" download>Download / print lab-mat.png</a> · set the volcano on the circle.</p>
+    <img src="assets/lab-mat.png" alt="Printable lab mat">
   </section>
 
-  <script>
+  <canvas id="arCanvas"></canvas>
+  <div id="arHud">
+    <div class="msg" id="arMsg">Move phone to find your table, then tap Place.</div>
+    <div class="row">
+      <button class="place" id="arPlaceBtn" type="button">Place volcano</button>
+      <button class="done" id="arEruptBtn" type="button" hidden>Erupt foam</button>
+    </div>
+    <div class="row">
+      <button class="exit" id="arExitBtn" type="button">Exit AR</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
     const stage = document.getElementById("stage");
     const video = document.getElementById("clip");
-    const canvas = document.getElementById("clipCanvas");
     const webpImg = document.getElementById("clipWebp");
     const why = document.getElementById("why");
     const quiz = document.getElementById("quiz");
     const feedback = document.getElementById("feedback");
+    const arBtn = document.getElementById("arBtn");
+    const arCanvas = document.getElementById("arCanvas");
+    const arHud = document.getElementById("arHud");
+    const arMsg = document.getElementById("arMsg");
+    const arPlaceBtn = document.getElementById("arPlaceBtn");
+    const arEruptBtn = document.getElementById("arEruptBtn");
+    const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "assets/keyed/eruption.webm";
-    const WEBP = "assets/keyed/eruption.webp";
-    const MP4 = "assets/eruption_gs.mp4";
+    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr1";
+    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr1";
+    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr1";
+    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/eruption_gs.mp4?v=webxr1";
 
-    let mode = "video"; // video | webp | canvas
-    let raf = 0;
+    let mode = "video";
     let lessonTimer = 0;
 
     function revealLesson() {
@@ -186,45 +209,7 @@
       return t === "probably" || t === "maybe";
     }
 
-    function stopCanvas() {
-      if (raf) cancelAnimationFrame(raf);
-      raf = 0;
-    }
-
-    function liveKeyLoop() {
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      const w = canvas.width, h = canvas.height;
-      function draw() {
-        if (video.paused || video.ended) return;
-        ctx.drawImage(video, 0, 0, w, h);
-        const img = ctx.getImageData(0, 0, w, h);
-        const d = img.data;
-        for (let i = 0; i < d.length; i += 4) {
-          const r = d[i], g = d[i + 1], b = d[i + 2];
-          const dist = Math.hypot(r - 0, g - 255, b - 0);
-          const greenness = g - Math.max(r, b);
-          if (greenness > 48 && dist < 95) d[i + 3] = 0;
-          else if (greenness > 28 && dist < 130) d[i + 3] = Math.max(0, Math.min(255, ((dist - 70) / 60) * 255));
-        }
-        ctx.putImageData(img, 0, 0);
-        raf = requestAnimationFrame(draw);
-      }
-      draw();
-    }
-
-    function playModelErupt() {
-      try {
-        if (mv) {
-          mv.animationName = "Erupt";
-          mv.currentTime = 0;
-          mv.animationName = "Erupt"; mv.play({ repetitions: Infinity });
-        }
-      } catch (e) { console.warn(e); }
-    }
-
     function playClip() {
-      playModelErupt();
-      stopCanvas();
       if (lessonTimer) clearTimeout(lessonTimer);
       stage.classList.add("playing");
       if (mode === "webp") {
@@ -236,41 +221,11 @@
       video.currentTime = 0;
       const p = video.play();
       if (p && p.catch) p.catch(() => {});
-      if (mode === "canvas") liveKeyLoop();
     }
 
-    video.addEventListener("ended", () => {
-      stopCanvas();
-      revealLesson();
-    });
-
-    const mv = document.getElementById("mv");
-    const arBtn = document.getElementById("arBtn");
-    async function openAR() {
-      try {
-        if (mv && mv.activateAR) await mv.activateAR();
-        else alert("AR not available in this browser. Open this page in Chrome on your Samsung.");
-      } catch (err) {
-        console.error(err);
-        alert("Could not start AR. Use Chrome on Android with Scene Viewer / Google Play Services for AR.");
-      }
-    }
-    if (arBtn) arBtn.addEventListener("click", openAR);
-    if (mv) {
-      mv.addEventListener("load", () => {
-        try { mv.animationName = "Erupt"; mv.animationName = "Erupt"; mv.play({ repetitions: Infinity }); } catch (e) {}
-      });
-      mv.addEventListener("ar-status", (ev) => {
-        if (ev.detail && (ev.detail.status === "session-started" || ev.detail.status === "presenting" || ev.detail.status === "object-placed" || ev.detail.status === "failed")) {
-          // When AR starts / object placed, kick animation for WebXR; Scene Viewer uses embedded GLB anim
-          playModelErupt();
-        }
-      });
-    }
-
+    video.addEventListener("ended", revealLesson);
     document.getElementById("eruptBtn").addEventListener("click", playClip);
     document.getElementById("replayBtn").addEventListener("click", playClip);
-
     document.getElementById("quizForm").addEventListener("submit", (e) => {
       e.preventDefault();
       const picked = new FormData(e.target).get("q");
@@ -288,13 +243,214 @@
       if (canPlayWebm()) {
         video.src = WEBM;
         video.classList.add("use-video");
-        video.addEventListener("loadeddata", () => { try { video.currentTime = 0.04; } catch (e) {} }, { once: true });
         mode = "video";
         return;
       }
       webpImg.classList.add("use-img");
       webpImg.src = WEBP;
       mode = "webp";
+    })();
+
+    // ——— WebXR AR ———
+    let renderer, scene, camera, reticle, volcanoRoot, xrHitTestSource, xrRefSpace;
+    let placed = false;
+    let arVideo, arVideoTex, arVideoMesh;
+    let gltfVolcano = null;
+
+    const loader = new GLTFLoader();
+    loader.load(MESH, (g) => { gltfVolcano = g.scene; });
+
+    function setMsg(t) { arMsg.textContent = t; }
+
+    function makeVideoLayer() {
+      arVideo = document.createElement("video");
+      arVideo.playsInline = true;
+      arVideo.muted = true;
+      arVideo.loop = false;
+      arVideo.crossOrigin = "anonymous";
+      arVideo.setAttribute("playsinline", "");
+      arVideo.src = canPlayWebm() ? WEBM : GS_MP4;
+      arVideo.load();
+
+      arVideoTex = new THREE.VideoTexture(arVideo);
+      arVideoTex.colorSpace = THREE.SRGBColorSpace;
+      arVideoTex.minFilter = THREE.LinearFilter;
+      arVideoTex.magFilter = THREE.LinearFilter;
+
+      const mat = new THREE.MeshBasicMaterial({
+        map: arVideoTex,
+        transparent: true,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      // Vertical plane at crater (~0.28m above base), bowl-scale
+      const geo = new THREE.PlaneGeometry(0.42, 0.48);
+      arVideoMesh = new THREE.Mesh(geo, mat);
+      arVideoMesh.position.set(0, 0.30, 0.02);
+      arVideoMesh.visible = false;
+      return arVideoMesh;
+    }
+
+    function buildVolcanoGroup() {
+      const root = new THREE.Group();
+      if (gltfVolcano) {
+        const mesh = gltfVolcano.clone(true);
+        // Ensure upright: +Y up (gltf already Y-up). Scale to kitchen bowl (~30cm tall)
+        mesh.scale.setScalar(1.15);
+        root.add(mesh);
+      } else {
+        const cone = new THREE.Mesh(
+          new THREE.ConeGeometry(0.18, 0.28, 24, 1, true),
+          new THREE.MeshStandardMaterial({ color: 0x734828, roughness: 0.9, metalness: 0 })
+        );
+        cone.position.y = 0.14;
+        root.add(cone);
+      }
+      root.add(makeVideoLayer());
+      return root;
+    }
+
+    async function startAR() {
+      if (!navigator.xr) {
+        alert("WebXR not available. Use Chrome on Android with AR support.");
+        return;
+      }
+      const ok = await navigator.xr.isSessionSupported("immersive-ar");
+      if (!ok) {
+        alert("This phone/browser can't do in-page AR (WebXR). Try updating Chrome / Google Play Services for AR.");
+        return;
+      }
+
+      arCanvas.style.display = "block";
+      arHud.classList.add("show");
+      placed = false;
+      arPlaceBtn.hidden = false;
+      arEruptBtn.hidden = true;
+      setMsg("Move phone slowly to find the table surface, then tap Place volcano.");
+
+      renderer = new THREE.WebGLRenderer({ canvas: arCanvas, alpha: true, antialias: true });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
+
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera();
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.1));
+      const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+      dir.position.set(1, 2, 1);
+      scene.add(dir);
+
+      reticle = new THREE.Mesh(
+        new THREE.RingGeometry(0.07, 0.09, 32).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ color: 0x0b5fff })
+      );
+      reticle.matrixAutoUpdate = false;
+      reticle.visible = false;
+      scene.add(reticle);
+
+      volcanoRoot = null;
+
+      const session = await navigator.xr.requestSession("immersive-ar", {
+        requiredFeatures: ["hit-test"],
+        optionalFeatures: ["dom-overlay", "local-floor"],
+        domOverlay: { root: arHud },
+      });
+
+      renderer.xr.setReferenceSpaceType("local");
+      await renderer.xr.setSession(session);
+
+      xrRefSpace = await session.requestReferenceSpace("local");
+      const viewerSpace = await session.requestReferenceSpace("viewer");
+      xrHitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+
+      session.addEventListener("end", onAREnd);
+
+      renderer.setAnimationLoop(onXRFrame);
+
+      arPlaceBtn.onclick = () => {
+        if (!reticle.visible) {
+          setMsg("Keep moving until the blue ring appears on the table.");
+          return;
+        }
+        if (volcanoRoot) scene.remove(volcanoRoot);
+        volcanoRoot = buildVolcanoGroup();
+        // Position from hit-test; force upright (+Y up) — do not copy surface tilt
+        volcanoRoot.position.setFromMatrixPosition(reticle.matrix);
+        const camPos = new THREE.Vector3().setFromMatrixPosition(camera.matrixWorld);
+        const dx = camPos.x - volcanoRoot.position.x;
+        const dz = camPos.z - volcanoRoot.position.z;
+        volcanoRoot.rotation.set(0, Math.atan2(dx, dz), 0);
+        scene.add(volcanoRoot);
+        placed = true;
+        reticle.visible = false;
+        arPlaceBtn.hidden = true;
+        arEruptBtn.hidden = false;
+        setMsg("Placed. Tap Erupt foam — watch the Imagine eruption on the crater.");
+      };
+
+      arEruptBtn.onclick = async () => {
+        if (!volcanoRoot || !arVideo) return;
+        arVideoMesh.visible = true;
+        arVideo.currentTime = 0;
+        try { await arVideo.play(); } catch (e) { console.warn(e); }
+        setMsg("Foam erupting…");
+        arVideo.onended = () => {
+          setMsg("Nice. Exit AR for Why + quiz — or Erupt foam again.");
+          revealLesson();
+        };
+      };
+
+      arExitBtn.onclick = () => session.end();
+    }
+
+    function onXRFrame(time, frame) {
+      if (!frame || !xrHitTestSource || !xrRefSpace) return;
+      const hitTestResults = frame.getHitTestResults(xrHitTestSource);
+      if (!placed && hitTestResults.length) {
+        const hit = hitTestResults[0];
+        const pose = hit.getPose(xrRefSpace);
+        if (pose) {
+          reticle.visible = true;
+          reticle.matrix.fromArray(pose.transform.matrix);
+        }
+      } else if (!placed) {
+        reticle.visible = false;
+      }
+      if (arVideoTex && arVideo && !arVideo.paused) arVideoTex.needsUpdate = true;
+      renderer.render(scene, camera);
+    }
+
+    function onAREnd() {
+      renderer.setAnimationLoop(null);
+      if (xrHitTestSource) { xrHitTestSource.cancel(); xrHitTestSource = null; }
+      arCanvas.style.display = "none";
+      arHud.classList.remove("show");
+      if (renderer) {
+        renderer.dispose();
+        renderer = null;
+      }
+      revealLesson();
+    }
+
+    arBtn.addEventListener("click", () => {
+      startAR().catch((err) => {
+        console.error(err);
+        alert("Couldn't start WebXR AR: " + (err && err.message ? err.message : err));
+      });
+    });
+
+    // Capability badge
+    (async () => {
+      try {
+        if (navigator.xr && await navigator.xr.isSessionSupported("immersive-ar")) {
+          arBtn.disabled = false;
+        } else {
+          arBtn.textContent = "AR needs Chrome on Android";
+          arBtn.disabled = true;
+        }
+      } catch (_) {
+        arBtn.disabled = false;
+      }
     })();
   </script>
 </body>
