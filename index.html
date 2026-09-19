@@ -98,7 +98,7 @@
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano.glb?v=svsafe1"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano.glb?v=sverupt1"
       alt="Bowl-scale baking soda volcano"
       ar
       ar-modes="scene-viewer webxr"
@@ -113,6 +113,8 @@
       min-camera-orbit="auto auto 0.35m"
       max-camera-orbit="auto auto 1.2m"
       reveal="auto"
+      animation-name="Erupt"
+      autoplay
     >
       <button slot="ar-button" id="arSlotBtn" type="button" class="ar-cta" style="position:absolute;left:12px;right:12px;bottom:12px;width:auto;z-index:5;">
         Place on table (AR)
@@ -125,7 +127,7 @@
     </div>
   </div>
 
-    <p class="hint" id="arHint">On Samsung: tap <strong>Place on table (AR)</strong>. AR places the volcano on your table (Scene Viewer). Tap Erupt on this page for the foam video + Why + quiz. Then come back for Why + quiz.</p>
+    <p class="hint" id="arHint">On Samsung: tap <strong>Place on table (AR)</strong>. AR: foam blobs should rise out of the crater in Scene Viewer. On this page, Erupt still plays the video + Why + quiz. Then come back for Why + quiz.</p>
   <div class="btns">
     <button class="ar-cta" id="arBtn" type="button">Place on table (AR)</button>
     <button class="erupt" id="eruptBtn" type="button">Erupt</button>
@@ -214,7 +216,7 @@
         if (mv) {
           mv.animationName = "Erupt";
           mv.currentTime = 0;
-          if (mv.availableAnimations && mv.availableAnimations.length) mv.play({ repetitions: Infinity });
+          mv.animationName = "Erupt"; mv.play({ repetitions: Infinity });
         }
       } catch (e) { console.warn(e); }
     }
@@ -255,7 +257,7 @@
     if (arBtn) arBtn.addEventListener("click", openAR);
     if (mv) {
       mv.addEventListener("load", () => {
-        try { mv.animationName = "Erupt"; if (mv.availableAnimations && mv.availableAnimations.length) mv.play({ repetitions: Infinity }); } catch (e) {}
+        try { mv.animationName = "Erupt"; mv.animationName = "Erupt"; mv.play({ repetitions: Infinity }); } catch (e) {}
       });
       mv.addEventListener("ar-status", (ev) => {
         if (ev.detail && (ev.detail.status === "session-started" || ev.detail.status === "presenting" || ev.detail.status === "object-placed" || ev.detail.status === "failed")) {
