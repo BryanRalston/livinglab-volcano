@@ -114,7 +114,7 @@
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr4b"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr5"
       alt="Bowl-scale baking soda volcano"
       camera-controls
       touch-action="pan-y"
@@ -190,10 +190,11 @@
     const arEruptBtn = document.getElementById("arEruptBtn");
     const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr4b";
-    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr4b";
-    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr4b";
-    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/eruption_gs.mp4?v=webxr4b";
+    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr5";
+    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr5";
+    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr5";
+    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/eruption_gs.mp4?v=webxr5";
+    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=webxr5";
 
     let mode = "video";
     let lessonTimer = 0;
@@ -262,6 +263,8 @@
 
     function setMsg(t) { arMsg.textContent = t; }
 
+    let arStillTex = null;
+
     function makeVideoLayer() {
       arVideo = document.createElement("video");
       arVideo.playsInline = true;
@@ -269,6 +272,7 @@
       arVideo.loop = false;
       arVideo.crossOrigin = "anonymous";
       arVideo.setAttribute("playsinline", "");
+      arVideo.preload = "auto";
       arVideo.src = canPlayWebm() ? WEBM : GS_MP4;
       arVideo.load();
 
@@ -277,12 +281,9 @@
       arVideoTex.minFilter = THREE.LinearFilter;
       arVideoTex.magFilter = THREE.LinearFilter;
 
-      // VIDEO ONLY — Imagine clip already has bowl + eruption. No 3D mesh.
-      // Cereal-bowl / kitchen demo size on the real table.
       const foamW = 0.28;
       const foamH = 0.32;
       const mat = new THREE.MeshBasicMaterial({
-        map: arVideoTex,
         transparent: true,
         side: THREE.DoubleSide,
         depthTest: true,
@@ -290,13 +291,31 @@
       });
       const geo = new THREE.PlaneGeometry(foamW, foamH);
       arVideoMesh = new THREE.Mesh(geo, mat);
-      // Bottom of frame sits on table surface (slight lift avoids floor z-fight)
       arVideoMesh.position.set(0, foamH / 2 + 0.004, 0);
       arVideoMesh.renderOrder = 10;
       arVideoMesh.visible = false;
+
+      // Place shows still (frame 0); Erupt swaps to live video in same seat
+      const texLoader = new THREE.TextureLoader();
+      texLoader.setCrossOrigin("anonymous");
+      texLoader.load(STILL, (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        arStillTex = tex;
+        mat.map = arStillTex;
+        mat.needsUpdate = true;
+      }, undefined, () => {
+        // fallback: use paused video frame 0 once metadata ready
+        const tryStill = () => {
+          try { arVideo.currentTime = 0.001; } catch (_) {}
+          mat.map = arVideoTex;
+          mat.needsUpdate = true;
+        };
+        if (arVideo.readyState >= 1) tryStill();
+        else arVideo.addEventListener("loadeddata", tryStill, { once: true });
+      });
+
       return arVideoMesh;
     }
-
     function buildVolcanoGroup() {
       // AR content = keyed Imagine video plane only (no procedural cone)
       const root = new THREE.Group();
@@ -376,18 +395,26 @@
         scene.add(volcanoRoot);
         if (arVideoMesh) {
           arVideoMesh.visible = true;
+          if (arStillTex && arVideoMesh.material) {
+            arVideoMesh.material.map = arStillTex;
+            arVideoMesh.material.needsUpdate = true;
+          }
           if (arVideo) { try { arVideo.pause(); arVideo.currentTime = 0; } catch (_) {} }
         }
         placed = true;
         reticle.visible = false;
         arPlaceBtn.hidden = true;
         arEruptBtn.hidden = false;
-        setMsg("Placed — Imagine video is on the table. Tap Erupt foam to play.");
+        setMsg("Placed — first frame on the table. Tap Erupt foam to bring it alive.");
       };
 
-      arEruptBtn.onclick = async () => {
-        if (!volcanoRoot || !arVideo) return;
+            arEruptBtn.onclick = async () => {
+        if (!volcanoRoot || !arVideo || !arVideoMesh) return;
         arVideoMesh.visible = true;
+        if (arVideoMesh.material && arVideoTex) {
+          arVideoMesh.material.map = arVideoTex;
+          arVideoMesh.material.needsUpdate = true;
+        }
         arVideo.currentTime = 0;
         try { await arVideo.play(); } catch (e) { console.warn(e); }
         setMsg("Foam erupting…");
@@ -396,8 +423,7 @@
           revealLesson();
         };
       };
-
-      arExitBtn.onclick = () => session.end();
+arExitBtn.onclick = () => session.end();
     }
 
     function onXRFrame(time, frame) {
