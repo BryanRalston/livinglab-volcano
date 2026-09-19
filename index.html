@@ -190,11 +190,11 @@
     const arEruptBtn = document.getElementById("arEruptBtn");
     const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr15";
+    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/cutroom_gs.mp4?v=webxr15";
     const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr15";
     const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr15";
-    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/beatA_gs.mp4?v=webxr15";
-    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=webxr15";
+    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/cutroom_gs.mp4?v=webxr15";
+    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/master_ready_gs.png?v=webxr15";
 
     let mode = "video";
     let lessonTimer = 0;
@@ -272,14 +272,55 @@
       arVideo.crossOrigin = "anonymous";
       arVideo.setAttribute("playsinline", "");
       arVideo.preload = "auto";
-      arVideo.src = canPlayWebm() ? WEBM : GS_MP4;
+      arVideo.src = GS_MP4; // GS mp4 + shader key (webm alpha unreliable)
       arVideo.load();
 
-      arVideoTex = new THREE.VideoTexture(arVideo);
+            arVideoTex = new THREE.VideoTexture(arVideo);
       arVideoTex.colorSpace = THREE.SRGBColorSpace;
       arVideoTex.minFilter = THREE.LinearFilter;
       arVideoTex.magFilter = THREE.LinearFilter;
 
+      // Chroma-key in shader (ffmpeg webm alpha flaky on this PC) — keys dark/true green to alpha
+      const mat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthTest: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        uniforms: {
+          map: { value: null },
+          keyColor: { value: new THREE.Color(0.004, 0.526, 0.146) }, // ~RGB(1,134,37) measured
+          similarity: { value: 0.32 },
+          smoothness: { value: 0.08 },
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D map;
+          uniform vec3 keyColor;
+          uniform float similarity;
+          uniform float smoothness;
+          varying vec2 vUv;
+          void main() {
+            vec4 texColor = texture2D(map, vUv);
+            float g = texColor.g;
+            float rb = max(texColor.r, texColor.b);
+            // green-screen distance
+            float dist = distance(texColor.rgb, keyColor);
+            float alpha = smoothstep(similarity, similarity + smoothness, dist);
+            // also kill near-key green spill
+            if (g > rb + 0.05 && dist < similarity + smoothness * 2.0) {
+              alpha *= smoothstep(0.0, 0.15, g - rb);
+            }
+            if (alpha < 0.08) discard;
+            gl_FragColor = vec4(texColor.rgb, alpha);
+          }
+        `,
+      });
       const foamW = 0.28;
       const foamH = 0.32;
       const mat = new THREE.MeshBasicMaterial({
@@ -303,7 +344,7 @@
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.premultiplyAlpha = true;
         arStillTex = tex;
-        mat.map = arStillTex;
+        mat.uniforms.map.value = arStillTex;
         mat.transparent = true;
         mat.alphaTest = 0.25;
         mat.needsUpdate = true;
@@ -311,7 +352,7 @@
         // fallback: use paused video frame 0 once metadata ready
         const tryStill = () => {
           try { arVideo.currentTime = 0.001; } catch (_) {}
-          mat.map = arVideoTex;
+          mat.uniforms.map.value = arVideoTex;
           mat.needsUpdate = true;
         };
         if (arVideo.readyState >= 1) tryStill();
@@ -400,7 +441,7 @@
         if (arVideoMesh) {
           arVideoMesh.visible = true;
           if (arStillTex && arVideoMesh.material) {
-            arVideoMesh.material.map = arStillTex;
+            if (arVideoMesh.material.uniforms) arVideoMesh.material.uniforms.map.value = arStillTex; else arVideoMesh.material.map = arStillTex;
             arVideoMesh.material.needsUpdate = true;
           }
           if (arVideo) { try { arVideo.pause(); arVideo.currentTime = 0; } catch (_) {} }
@@ -416,7 +457,7 @@
         if (!volcanoRoot || !arVideo || !arVideoMesh) return;
         arVideoMesh.visible = true;
         if (arVideoMesh.material && arVideoTex) {
-          arVideoMesh.material.map = arVideoTex;
+          if (arVideoMesh.material.uniforms) arVideoMesh.material.uniforms.map.value = arVideoTex; else arVideoMesh.material.map = arVideoTex;
           arVideoMesh.material.needsUpdate = true;
         }
         arVideo.loop = true;
