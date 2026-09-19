@@ -114,7 +114,7 @@
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr5"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr6"
       alt="Bowl-scale baking soda volcano"
       camera-controls
       touch-action="pan-y"
@@ -190,11 +190,11 @@
     const arEruptBtn = document.getElementById("arEruptBtn");
     const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr5";
-    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr5";
-    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr5";
-    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/eruption_gs.mp4?v=webxr5";
-    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=webxr5";
+    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr6";
+    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr6";
+    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr6";
+    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/eruption_gs.mp4?v=webxr6";
+    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=webxr6";
 
     let mode = "video";
     let lessonTimer = 0;
@@ -285,9 +285,11 @@
       const foamH = 0.32;
       const mat = new THREE.MeshBasicMaterial({
         transparent: true,
+        alphaTest: 0.25,
         side: THREE.DoubleSide,
         depthTest: true,
         depthWrite: false,
+        opacity: 1,
       });
       const geo = new THREE.PlaneGeometry(foamW, foamH);
       arVideoMesh = new THREE.Mesh(geo, mat);
@@ -300,8 +302,11 @@
       texLoader.setCrossOrigin("anonymous");
       texLoader.load(STILL, (tex) => {
         tex.colorSpace = THREE.SRGBColorSpace;
+        tex.premultiplyAlpha = true;
         arStillTex = tex;
         mat.map = arStillTex;
+        mat.transparent = true;
+        mat.alphaTest = 0.25;
         mat.needsUpdate = true;
       }, undefined, () => {
         // fallback: use paused video frame 0 once metadata ready
