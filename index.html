@@ -106,7 +106,7 @@
   </header>
 
   <p class="hint" id="arHint">
-    On Samsung Chrome: tap <strong>Place on table (AR)</strong> — stays in this page (WebXR).
+    Tap <strong>Place on table (AR)</strong> — on Android Chrome this stays in-page (WebXR).
     Place the ready bowl, then Erupt: baking soda pour → vinegar → foam. No 3D mesh.
   </p>
 
@@ -114,7 +114,7 @@
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr17"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr18"
       alt="Bowl-scale baking soda volcano"
       camera-controls
       touch-action="pan-y"
@@ -126,7 +126,7 @@
       reveal="auto"
     ></model-viewer>
     <div class="overlay">
-      <video id="clip" playsinline muted loop poster="assets/keyed/eruption_frame0.png?v=webxr17"></video>
+      <video id="clip" playsinline muted loop poster="assets/keyed/eruption_frame0.png?v=webxr18"></video>
       <img id="clipWebp" alt="Volcano erupting foam">
     </div>
   </div>
@@ -190,11 +190,11 @@
     const arEruptBtn = document.getElementById("arEruptBtn");
     const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr17";
-    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr17";
-    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr17";
-    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr17";
-    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=webxr17";
+    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr18";
+    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr18";
+    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr18";
+    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr18";
+    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=webxr18";
 
     let mode = "video";
     let lessonTimer = 0;
@@ -288,9 +288,12 @@
         side: THREE.DoubleSide,
         uniforms: {
           map: { value: null },
-          keyColor: { value: new THREE.Color(0.0, 0.0, 0.0) }, // black matte // black matte
-          similarity: { value: 0.08 }, // black matte threshold // black matte threshold
-          smoothness: { value: 0.06 },
+          // Black-matte + true GS (~5,170,39). Preserve glass highlights; do not over-discard greenish glass.
+          keyColor: { value: new THREE.Color(0.0, 0.0, 0.0) },
+          gsKey: { value: new THREE.Color(5.13/255.0, 170.0/255.0, 39.06/255.0) },
+          similarity: { value: 0.045 },
+          smoothness: { value: 0.04 },
+          gsSimilarity: { value: 0.18 },
         },
         vertexShader: `
           varying vec2 vUv;
@@ -302,19 +305,37 @@
         fragmentShader: `
           uniform sampler2D map;
           uniform vec3 keyColor;
+          uniform vec3 gsKey;
           uniform float similarity;
           uniform float smoothness;
+          uniform float gsSimilarity;
           varying vec2 vUv;
           void main() {
             vec4 texColor = texture2D(map, vUv);
-            float dist = distance(texColor.rgb, keyColor);
-            float alpha = smoothstep(similarity, similarity + smoothness, dist);
+            float distBlk = distance(texColor.rgb, keyColor);
+            float alpha = smoothstep(similarity, similarity + smoothness, distBlk);
+
+            // True GS residual only: near plate AND G-dominant (G>R+m AND G>B+m).
+            // Glass spill = elevated G but R/B not GS-low — keep it.
             float g = texColor.g;
-            float rb = max(texColor.r, texColor.b);
-            if (g > rb + 0.05 && dist < similarity + smoothness * 2.0) {
-              alpha *= smoothstep(0.0, 0.15, g - rb);
+            float r = texColor.r;
+            float b = texColor.b;
+            float rb = max(r, b);
+            float distGs = distance(texColor.rgb, gsKey);
+            bool gDom = (g > r + 0.09) && (g > b + 0.09);
+            if (gDom && distGs < gsSimilarity) {
+              alpha *= smoothstep(gsSimilarity * 0.45, gsSimilarity, distGs);
             }
-            if (alpha < 0.08) discard;
+
+            // Fringe despill only — protect bright refraction highlights.
+            if (alpha > 0.12 && g > rb + 0.02) {
+              float spill = smoothstep(0.02, 0.10, g - rb);
+              float luma = dot(texColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+              spill *= smoothstep(0.92, 0.75, luma);
+              texColor.g = mix(texColor.g, rb, spill * 0.65);
+            }
+
+            if (alpha < 0.06) discard;
             gl_FragColor = vec4(texColor.rgb, alpha);
           }
         `,
