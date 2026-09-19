@@ -114,7 +114,7 @@
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr13"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr15"
       alt="Bowl-scale baking soda volcano"
       camera-controls
       touch-action="pan-y"
@@ -126,7 +126,7 @@
       reveal="auto"
     ></model-viewer>
     <div class="overlay">
-      <video id="clip" playsinline muted loop poster="assets/keyed/eruption_frame0.png?v=webxr13"></video>
+      <video id="clip" playsinline muted loop poster="assets/keyed/eruption_frame0.png?v=webxr15"></video>
       <img id="clipWebp" alt="Volcano erupting foam">
     </div>
   </div>
@@ -190,11 +190,11 @@
     const arEruptBtn = document.getElementById("arEruptBtn");
     const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/cutroom_gs.mp4?v=webxr13";
-    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr13";
-    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr13";
-    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/cutroom_gs.mp4?v=webxr13";
-    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/master_ready_gs.png?v=webxr13";
+    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/cutroom_gs.mp4?v=webxr15";
+    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr15";
+    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr15";
+    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/cutroom_gs.mp4?v=webxr15";
+    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/master_ready_gs.png?v=webxr15";
 
     let mode = "video";
     let lessonTimer = 0;
@@ -272,15 +272,15 @@
       arVideo.crossOrigin = "anonymous";
       arVideo.setAttribute("playsinline", "");
       arVideo.preload = "auto";
-      arVideo.src = GS_MP4; // GS mp4 + shader key (webm alpha unreliable)
+      arVideo.src = GS_MP4; // GS + shader key (webm alpha unreliable on this ffmpeg)
       arVideo.load();
 
-            arVideoTex = new THREE.VideoTexture(arVideo);
+      arVideoTex = new THREE.VideoTexture(arVideo);
       arVideoTex.colorSpace = THREE.SRGBColorSpace;
       arVideoTex.minFilter = THREE.LinearFilter;
       arVideoTex.magFilter = THREE.LinearFilter;
 
-      // Chroma-key in shader (ffmpeg webm alpha flaky on this PC) — keys dark/true green to alpha
+      // In-engine chroma key → black/transparent plate for Cut Room (not raw greenscreen)
       const mat = new THREE.ShaderMaterial({
         transparent: true,
         depthTest: true,
@@ -288,7 +288,7 @@
         side: THREE.DoubleSide,
         uniforms: {
           map: { value: null },
-          keyColor: { value: new THREE.Color(0.004, 0.526, 0.146) }, // ~RGB(1,134,37) measured
+          keyColor: { value: new THREE.Color(0.004, 0.526, 0.146) },
           similarity: { value: 0.32 },
           smoothness: { value: 0.08 },
         },
@@ -307,12 +307,10 @@
           varying vec2 vUv;
           void main() {
             vec4 texColor = texture2D(map, vUv);
-            float g = texColor.g;
-            float rb = max(texColor.r, texColor.b);
-            // green-screen distance
             float dist = distance(texColor.rgb, keyColor);
             float alpha = smoothstep(similarity, similarity + smoothness, dist);
-            // also kill near-key green spill
+            float g = texColor.g;
+            float rb = max(texColor.r, texColor.b);
             if (g > rb + 0.05 && dist < similarity + smoothness * 2.0) {
               alpha *= smoothstep(0.0, 0.15, g - rb);
             }
@@ -321,35 +319,23 @@
           }
         `,
       });
+
       const foamW = 0.28;
       const foamH = 0.32;
-      const mat = new THREE.MeshBasicMaterial({
-        transparent: true,
-        alphaTest: 0.25,
-        side: THREE.DoubleSide,
-        depthTest: true,
-        depthWrite: false,
-        opacity: 1,
-      });
       const geo = new THREE.PlaneGeometry(foamW, foamH);
       arVideoMesh = new THREE.Mesh(geo, mat);
-      arVideoMesh.position.set(0, foamH / 2 + 0.001, 0); // sit on surface; 1mm anti z-fight
+      arVideoMesh.position.set(0, foamH / 2 + 0.001, 0);
       arVideoMesh.renderOrder = 10;
       arVideoMesh.visible = false;
 
-      // Place shows still (frame 0); Erupt swaps to live video in same seat
       const texLoader = new THREE.TextureLoader();
       texLoader.setCrossOrigin("anonymous");
       texLoader.load(STILL, (tex) => {
         tex.colorSpace = THREE.SRGBColorSpace;
-        tex.premultiplyAlpha = true;
         arStillTex = tex;
         mat.uniforms.map.value = arStillTex;
-        mat.transparent = true;
-        mat.alphaTest = 0.25;
         mat.needsUpdate = true;
       }, undefined, () => {
-        // fallback: use paused video frame 0 once metadata ready
         const tryStill = () => {
           try { arVideo.currentTime = 0.001; } catch (_) {}
           mat.uniforms.map.value = arVideoTex;
