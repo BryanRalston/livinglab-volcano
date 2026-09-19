@@ -107,14 +107,14 @@
 
   <p class="hint" id="arHint">
     On Samsung Chrome: tap <strong>Place on table (AR)</strong> — stays in this page (WebXR).
-    Point at your table, tap to place, then the Imagine eruption video sits on the crater.
+    Point at your table, tap to place the Imagine video (bowl + eruption already in the clip). No 3D mesh.
   </p>
 
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr3"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr4"
       alt="Bowl-scale baking soda volcano"
       camera-controls
       touch-action="pan-y"
@@ -164,7 +164,7 @@
   <div id="arHud">
     <div class="msg" id="arMsg">Move phone to find your table, then tap Place.</div>
     <div class="row">
-      <button class="place" id="arPlaceBtn" type="button">Place volcano</button>
+      <button class="place" id="arPlaceBtn" type="button">Place video</button>
       <button class="done" id="arEruptBtn" type="button" hidden>Erupt foam</button>
     </div>
     <div class="row">
@@ -190,10 +190,10 @@
     const arEruptBtn = document.getElementById("arEruptBtn");
     const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr3";
-    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr3";
-    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr3";
-    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/eruption_gs.mp4?v=webxr3";
+    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr4";
+    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr4";
+    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr4";
+    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/eruption_gs.mp4?v=webxr4";
 
     let mode = "video";
     let lessonTimer = 0;
@@ -277,43 +277,30 @@
       arVideoTex.minFilter = THREE.LinearFilter;
       arVideoTex.magFilter = THREE.LinearFilter;
 
-      // ONE plane only — bottom flush on flat crater rim (mesh units, parent is scaled)
-      const craterY = 0.22;
-      const foamW = 0.30;
-      const foamH = 0.34;
+      // VIDEO ONLY — Imagine clip already has bowl + eruption. No 3D mesh.
+      // Cereal-bowl / kitchen demo size on the real table.
+      const foamW = 0.28;
+      const foamH = 0.32;
       const mat = new THREE.MeshBasicMaterial({
         map: arVideoTex,
         transparent: true,
         side: THREE.DoubleSide,
-        depthTest: false,
+        depthTest: true,
         depthWrite: false,
       });
       const geo = new THREE.PlaneGeometry(foamW, foamH);
       arVideoMesh = new THREE.Mesh(geo, mat);
-      // Bottom edge sits on crater mouth — no floating gap
-      arVideoMesh.position.set(0, craterY + foamH / 2, 0);
+      // Bottom of frame sits on table surface (slight lift avoids floor z-fight)
+      arVideoMesh.position.set(0, foamH / 2 + 0.004, 0);
       arVideoMesh.renderOrder = 10;
       arVideoMesh.visible = false;
       return arVideoMesh;
     }
+
     function buildVolcanoGroup() {
+      // AR content = keyed Imagine video plane only (no procedural cone)
       const root = new THREE.Group();
-      const meshRoot = new THREE.Group();
-      // Kitchen cereal-bowl scale
-      meshRoot.scale.setScalar(1.2);
-      if (gltfVolcano) {
-        meshRoot.add(gltfVolcano.clone(true));
-      } else {
-        const cone = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.07, 0.16, 0.22, 24, 1, true),
-          new THREE.MeshStandardMaterial({ color: 0x734828, roughness: 0.9, metalness: 0 })
-        );
-        cone.position.y = 0.11;
-        meshRoot.add(cone);
-      }
-      // Foam in same mesh space so craterY=0.22 matches the flat rim
-      meshRoot.add(makeVideoLayer());
-      root.add(meshRoot);
+      root.add(makeVideoLayer());
       return root;
     }
     async function startAR() {
@@ -332,7 +319,7 @@
       placed = false;
       arPlaceBtn.hidden = false;
       arEruptBtn.hidden = true;
-      setMsg("Move phone slowly to find the table surface, then tap Place volcano.");
+      setMsg("Move phone slowly to find the table surface, then tap Place video.");
 
       renderer = new THREE.WebGLRenderer({ canvas: arCanvas, alpha: true, antialias: true });
       renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -391,7 +378,7 @@
         reticle.visible = false;
         arPlaceBtn.hidden = true;
         arEruptBtn.hidden = false;
-        setMsg("Placed. Tap Erupt foam — watch the Imagine eruption on the crater.");
+        setMsg("Placed. Tap Erupt foam — the Imagine volcano sits on your table.");
       };
 
       arEruptBtn.onclick = async () => {
