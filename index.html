@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Kitchen Volcano — Living Lab</title>
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+  <style>
+    :root {
+      --ink: #1a140f;
+      --paper: #f6efe4;
+      --foam: #f4f7fb;
+      --acid: #c45c26;
+      --ok: #2f6f3e;
+      --line: #d7cbb8;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: "Segoe UI", system-ui, sans-serif; }
+    body { max-width: 520px; margin: 0 auto; min-height: 100dvh; padding: 12px 12px calc(24px + env(safe-area-inset-bottom)); }
+    header h1 { font-size: 1.35rem; margin: 4px 0 2px; }
+    header p { margin: 0 0 10px; font-size: .92rem; opacity: .8; }
+    .stage {
+      position: relative;
+      height: min(62vh, 480px);
+      border-radius: 16px;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, #cfe7ff 0%, #e9d7b8 55%, #c4a574 56%, #8a6a3d 100%);
+      border: 1px solid var(--line);
+      perspective: 700px;
+    }
+    .table {
+      position: absolute; left: -10%; right: -10%; bottom: 0; height: 46%;
+      transform: rotateX(62deg);
+      transform-origin: top center;
+      background: repeating-linear-gradient(90deg, #b8894e 0 18px, #a6783e 18px 36px);
+      box-shadow: 0 -8px 24px rgba(0,0,0,.18);
+    }
+    model-viewer {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      --poster-color: transparent;
+      background: transparent;
+    }
+    .overlay {
+      position: absolute; inset: 0; display: grid; place-items: center;
+      pointer-events: none;
+    }
+    #clip, #clipCanvas, #clipWebp {
+      width: min(92%, 420px);
+      height: auto;
+      max-height: 92%;
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,.28));
+      display: none;
+    }
+    #clipCanvas { background: transparent; }
+    .playing #clip.use-video,
+    .playing #clipCanvas.use-canvas,
+    .playing #clipWebp.use-img { display: block; }
+    .playing model-viewer { opacity: 0; }
+    .btns { display: flex; gap: 8px; margin: 12px 0; }
+    button {
+      flex: 1; min-height: 48px; border: 0; border-radius: 12px;
+      font-size: 1.05rem; font-weight: 650; cursor: pointer;
+    }
+    .erupt { background: var(--acid); color: #fff; }
+    .replay { background: var(--ink); color: #fff; }
+    .why, .quiz {
+      background: #fff; border: 1px solid var(--line); border-radius: 14px;
+      padding: 14px 14px 12px; margin: 10px 0; display: none;
+    }
+    .why.show, .quiz.show { display: block; }
+    .why h2, .quiz h2 { font-size: 1rem; margin: 0 0 6px; }
+    .why p { margin: 0; line-height: 1.4; }
+    .quiz label {
+      display: block; padding: 10px 10px; border: 1px solid var(--line);
+      border-radius: 10px; margin: 8px 0; background: var(--paper);
+    }
+    .quiz button.check { width: 100%; background: var(--ok); color: #fff; margin-top: 6px; }
+    .feedback { min-height: 1.4em; font-weight: 650; margin-top: 8px; }
+    .mat { margin-top: 16px; font-size: .9rem; }
+    .mat img { width: 100%; border: 1px solid var(--line); border-radius: 10px; }
+    a { color: var(--acid); }
+    .hint { font-size: .82rem; opacity: .75; margin: 0 0 8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Kitchen Volcano</h1>
+    <p>Place it. Erupt it. Then say why the foam happened.</p>
+  </header>
+
+  <p class="hint">Tip: print the lab mat, or just put the volcano on the floor / table.</p>
+
+  <div class="stage" id="stage">
+    <div class="table" aria-hidden="true"></div>
+    <model-viewer
+      id="mv"
+      src="assets/volcano.glb"
+      alt="Bowl-scale baking soda volcano"
+      ar
+      ar-modes="scene-viewer quick-look webxr"
+      ar-placement="floor"
+      camera-controls
+      touch-action="pan-y"
+      shadow-intensity="1"
+      exposure="1.05"
+      camera-orbit="25deg 70deg 0.55m"
+      field-of-view="28deg"
+      min-camera-orbit="auto auto 0.35m"
+      max-camera-orbit="auto auto 1.2m"
+    >
+      <button slot="ar-button" class="erupt" style="position:absolute;left:12px;right:12px;bottom:12px;width:auto;">
+        View in AR
+      </button>
+    </model-viewer>
+    <div class="overlay">
+      <video id="clip" playsinline muted></video>
+      <img id="clipWebp" alt="Volcano erupting foam in a cereal bowl">
+      <canvas id="clipCanvas" width="720" height="532"></canvas>
+    </div>
+  </div>
+
+  <div class="btns">
+    <button class="erupt" id="eruptBtn" type="button">Erupt</button>
+    <button class="replay" id="replayBtn" type="button">Replay</button>
+  </div>
+
+  <section class="why" id="why">
+    <h2>Why did it foam?</h2>
+    <p>Vinegar is an acid and baking soda is a base. When they mix they make carbon dioxide gas — tiny CO<sub>2</sub> bubbles that swell into the foam that overflows the bowl.</p>
+  </section>
+
+  <section class="quiz" id="quiz">
+    <h2>Quick check</h2>
+    <p>What made the bubbles?</p>
+    <form id="quizForm">
+      <label><input type="radio" name="q" value="hot"> The volcano got hot like a real mountain.</label>
+      <label><input type="radio" name="q" value="co2"> Baking soda + vinegar made carbon dioxide gas.</label>
+      <label><input type="radio" name="q" value="melt"> The cereal bowl melted into foam.</label>
+      <button class="check" type="submit">Check my answer</button>
+    </form>
+    <div class="feedback" id="feedback"></div>
+  </section>
+
+  <section class="mat">
+    <strong>Printed lab mat</strong> (optional — floor is fine)
+    <p><a href="assets/lab-mat.png" download>Download / print lab-mat.png</a> · lay it on the table · set the volcano on the black circle.</p>
+    <img src="assets/lab-mat.png" alt="Printable lab mat with a circle that says set bowl here">
+  </section>
+
+  <script>
+    const stage = document.getElementById("stage");
+    const video = document.getElementById("clip");
+    const canvas = document.getElementById("clipCanvas");
+    const webpImg = document.getElementById("clipWebp");
+    const why = document.getElementById("why");
+    const quiz = document.getElementById("quiz");
+    const feedback = document.getElementById("feedback");
+
+    const WEBM = "assets/keyed/eruption.webm";
+    const WEBP = "assets/keyed/eruption.webp";
+    const MP4 = "assets/eruption_gs.mp4";
+
+    let mode = "video"; // video | webp | canvas
+    let raf = 0;
+    let lessonTimer = 0;
+
+    function revealLesson() {
+      why.classList.add("show");
+      quiz.classList.add("show");
+    }
+
+    function canPlayWebm() {
+      const t = video.canPlayType('video/webm; codecs="vp9"');
+      return t === "probably" || t === "maybe";
+    }
+
+    function stopCanvas() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+    }
+
+    function liveKeyLoop() {
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      const w = canvas.width, h = canvas.height;
+      function draw() {
+        if (video.paused || video.ended) return;
+        ctx.drawImage(video, 0, 0, w, h);
+        const img = ctx.getImageData(0, 0, w, h);
+        const d = img.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const r = d[i], g = d[i + 1], b = d[i + 2];
+          const dist = Math.hypot(r - 0, g - 255, b - 0);
+          const greenness = g - Math.max(r, b);
+          if (greenness > 48 && dist < 95) d[i + 3] = 0;
+          else if (greenness > 28 && dist < 130) d[i + 3] = Math.max(0, Math.min(255, ((dist - 70) / 60) * 255));
+        }
+        ctx.putImageData(img, 0, 0);
+        raf = requestAnimationFrame(draw);
+      }
+      draw();
+    }
+
+    function playClip() {
+      stopCanvas();
+      if (lessonTimer) clearTimeout(lessonTimer);
+      stage.classList.add("playing");
+      if (mode === "webp") {
+        webpImg.src = "";
+        webpImg.src = WEBP;
+        lessonTimer = setTimeout(revealLesson, 10000);
+        return;
+      }
+      video.currentTime = 0;
+      const p = video.play();
+      if (p && p.catch) p.catch(() => {});
+      if (mode === "canvas") liveKeyLoop();
+    }
+
+    video.addEventListener("ended", () => {
+      stopCanvas();
+      revealLesson();
+    });
+
+    document.getElementById("eruptBtn").addEventListener("click", playClip);
+    document.getElementById("replayBtn").addEventListener("click", playClip);
+
+    document.getElementById("quizForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const picked = new FormData(e.target).get("q");
+      if (!picked) { feedback.textContent = "Pick one, then check."; return; }
+      if (picked === "co2") {
+        feedback.textContent = "Yes. Those bubbles are carbon dioxide gas.";
+        feedback.style.color = "#2f6f3e";
+      } else {
+        feedback.textContent = "Not that one. The foam is CO2 from baking soda + vinegar.";
+        feedback.style.color = "#a33";
+      }
+    });
+
+    (function pickSource() {
+      if (canPlayWebm()) {
+        video.src = WEBM;
+        video.classList.add("use-video");
+        mode = "video";
+        return;
+      }
+      webpImg.classList.add("use-img");
+      webpImg.src = WEBP;
+      mode = "webp";
+    })();
+  </script>
+</body>
+</html>

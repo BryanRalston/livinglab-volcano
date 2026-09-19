@@ -1,0 +1,1 @@
+BLOCKER_BLENDER: Foundry path C:\Program Files\Blender Foundation\Blender 4.4\blender.exe missing. Store Blender 5.2.2 exists at WindowsApps but blender.exe is Access Denied for headless export. No volcano.usdz. GLB fallback shipped.

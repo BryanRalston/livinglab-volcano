@@ -1,0 +1,9 @@
+brief.txt
+brief-v2.txt
+blender.exe
+blender_out.txt
+blender_err.txt
+__pycache__/
+.grok/
+assets/keyed/png/
+assets/keyed/_probe_*.png
