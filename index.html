@@ -114,7 +114,7 @@
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr1"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr2"
       alt="Bowl-scale baking soda volcano"
       camera-controls
       touch-action="pan-y"
@@ -190,10 +190,10 @@
     const arEruptBtn = document.getElementById("arEruptBtn");
     const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr1";
-    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr1";
-    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr1";
-    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/eruption_gs.mp4?v=webxr1";
+    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr2";
+    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr2";
+    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr2";
+    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/eruption_gs.mp4?v=webxr2";
 
     let mode = "video";
     let lessonTimer = 0;
@@ -277,17 +277,40 @@
       arVideoTex.minFilter = THREE.LinearFilter;
       arVideoTex.magFilter = THREE.LinearFilter;
 
-      const mat = new THREE.MeshBasicMaterial({
+      // Kitchen-bowl overflow: bigger foam, bottom edge at crater mouth, draws in front of rim
+      const craterY = 0.32;   // cone tip after mesh.scale 1.15 (~0.28*1.15)
+      const foamW = 0.62;
+      const foamH = 0.70;
+      const matA = new THREE.MeshBasicMaterial({
         map: arVideoTex,
         transparent: true,
         side: THREE.DoubleSide,
+        depthTest: false,
         depthWrite: false,
       });
-      // Vertical plane at crater (~0.28m above base), bowl-scale
-      const geo = new THREE.PlaneGeometry(0.42, 0.48);
-      arVideoMesh = new THREE.Mesh(geo, mat);
-      arVideoMesh.position.set(0, 0.30, 0.02);
-      arVideoMesh.visible = false;
+      const matB = matA.clone();
+      matB.map = arVideoTex;
+
+      const geo = new THREE.PlaneGeometry(foamW, foamH);
+      // Crossed planes so it reads as volume erupting UP, not a postage stamp stabbed through the tip
+      const planeA = new THREE.Mesh(geo, matA);
+      const planeB = new THREE.Mesh(geo.clone(), matB);
+      planeB.rotation.y = Math.PI / 2;
+
+      // Bottom of plane sits just above crater rim; foam rises upward from the mouth
+      const foamCenterY = craterY + 0.01 + foamH / 2;
+      planeA.position.set(0, foamCenterY, 0);
+      planeB.position.set(0, foamCenterY, 0);
+      planeA.renderOrder = 10;
+      planeB.renderOrder = 10;
+      planeA.visible = false;
+      planeB.visible = false;
+
+      const group = new THREE.Group();
+      group.name = "FoamOverflow";
+      group.add(planeA, planeB);
+      arVideoMesh = group; // used as visibility/toggle root
+      arVideoMesh._planes = [planeA, planeB];
       return arVideoMesh;
     }
 
@@ -390,7 +413,8 @@
 
       arEruptBtn.onclick = async () => {
         if (!volcanoRoot || !arVideo) return;
-        arVideoMesh.visible = true;
+        if (arVideoMesh._planes) arVideoMesh._planes.forEach((p) => { p.visible = true; });
+        else arVideoMesh.visible = true;
         arVideo.currentTime = 0;
         try { await arVideo.play(); } catch (e) { console.warn(e); }
         setMsg("Foam erupting…");
