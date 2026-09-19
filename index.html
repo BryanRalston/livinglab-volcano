@@ -98,7 +98,7 @@
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano.glb"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano.glb?v=flipbook2"
       alt="Bowl-scale baking soda volcano"
       ar
       ar-modes="scene-viewer webxr"
@@ -127,7 +127,7 @@
     </div>
   </div>
 
-    <p class="hint" id="arHint">On Samsung: tap <strong>Place on table (AR)</strong>. The volcano should erupt foam in AR (animation baked into the model). Then come back for Why + quiz.</p>
+    <p class="hint" id="arHint">On Samsung: tap <strong>Place on table (AR)</strong>. You should see the real foam eruption flipbook rising out of the crater in AR — not just the brown cone. Hard-refresh if you still see beige balls. Then come back for Why + quiz.</p>
   <div class="btns">
     <button class="ar-cta" id="arBtn" type="button">Place on table (AR)</button>
     <button class="erupt" id="eruptBtn" type="button">Erupt</button>
@@ -216,7 +216,7 @@
         if (mv) {
           mv.animationName = "Erupt";
           mv.currentTime = 0;
-          mv.play({ repetitions: 1 });
+          mv.play({ repetitions: Infinity });
         }
       } catch (e) { console.warn(e); }
     }
@@ -257,7 +257,7 @@
     if (arBtn) arBtn.addEventListener("click", openAR);
     if (mv) {
       mv.addEventListener("load", () => {
-        try { mv.animationName = "Erupt"; mv.play({ repetitions: 1 }); } catch (e) {}
+        try { mv.animationName = "Erupt"; mv.play({ repetitions: Infinity }); } catch (e) {}
       });
       mv.addEventListener("ar-status", (ev) => {
         if (ev.detail && (ev.detail.status === "session-started" || ev.detail.status === "presenting" || ev.detail.status === "object-placed" || ev.detail.status === "failed")) {
