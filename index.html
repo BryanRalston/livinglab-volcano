@@ -113,6 +113,8 @@
       min-camera-orbit="auto auto 0.35m"
       max-camera-orbit="auto auto 1.2m"
       reveal="auto"
+      animation-name="Erupt"
+      autoplay
     >
       <button slot="ar-button" id="arSlotBtn" type="button" class="ar-cta" style="position:absolute;left:12px;right:12px;bottom:12px;width:auto;z-index:5;">
         Place on table (AR)
@@ -125,7 +127,7 @@
     </div>
   </div>
 
-    <p class="hint" id="arHint">On Samsung: tap <strong>Place on table (AR)</strong> — it opens Google Scene Viewer so you can put the volcano on a real table.</p>
+    <p class="hint" id="arHint">On Samsung: tap <strong>Place on table (AR)</strong>. The volcano should erupt foam in AR (animation baked into the model). Then come back for Why + quiz.</p>
   <div class="btns">
     <button class="ar-cta" id="arBtn" type="button">Place on table (AR)</button>
     <button class="erupt" id="eruptBtn" type="button">Erupt</button>
@@ -209,7 +211,18 @@
       draw();
     }
 
+    function playModelErupt() {
+      try {
+        if (mv) {
+          mv.animationName = "Erupt";
+          mv.currentTime = 0;
+          mv.play({ repetitions: 1 });
+        }
+      } catch (e) { console.warn(e); }
+    }
+
     function playClip() {
+      playModelErupt();
       stopCanvas();
       if (lessonTimer) clearTimeout(lessonTimer);
       stage.classList.add("playing");
@@ -242,6 +255,17 @@
       }
     }
     if (arBtn) arBtn.addEventListener("click", openAR);
+    if (mv) {
+      mv.addEventListener("load", () => {
+        try { mv.animationName = "Erupt"; mv.play({ repetitions: 1 }); } catch (e) {}
+      });
+      mv.addEventListener("ar-status", (ev) => {
+        if (ev.detail && (ev.detail.status === "session-started" || ev.detail.status === "presenting" || ev.detail.status === "object-placed" || ev.detail.status === "failed")) {
+          // When AR starts / object placed, kick animation for WebXR; Scene Viewer uses embedded GLB anim
+          playModelErupt();
+        }
+      });
+    }
 
     document.getElementById("eruptBtn").addEventListener("click", playClip);
     document.getElementById("replayBtn").addEventListener("click", playClip);
