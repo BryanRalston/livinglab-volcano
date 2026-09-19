@@ -107,14 +107,14 @@
 
   <p class="hint" id="arHint">
     On Samsung Chrome: tap <strong>Place on table (AR)</strong> — stays in this page (WebXR).
-    Point at your table, tap to place, then the Imagine foam erupts from the crater.
+    Point at your table, tap to place, then the Imagine eruption video sits on the crater.
   </p>
 
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr2"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr3"
       alt="Bowl-scale baking soda volcano"
       camera-controls
       touch-action="pan-y"
@@ -190,10 +190,10 @@
     const arEruptBtn = document.getElementById("arEruptBtn");
     const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr2";
-    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr2";
-    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr2";
-    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/eruption_gs.mp4?v=webxr2";
+    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr3";
+    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr3";
+    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr3";
+    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/eruption_gs.mp4?v=webxr3";
 
     let mode = "video";
     let lessonTimer = 0;
@@ -277,62 +277,45 @@
       arVideoTex.minFilter = THREE.LinearFilter;
       arVideoTex.magFilter = THREE.LinearFilter;
 
-      // Kitchen-bowl overflow: bigger foam, bottom edge at crater mouth, draws in front of rim
-      const craterY = 0.32;   // cone tip after mesh.scale 1.15 (~0.28*1.15)
-      const foamW = 0.62;
-      const foamH = 0.70;
-      const matA = new THREE.MeshBasicMaterial({
+      // ONE plane only — bottom flush on flat crater rim (mesh units, parent is scaled)
+      const craterY = 0.22;
+      const foamW = 0.30;
+      const foamH = 0.34;
+      const mat = new THREE.MeshBasicMaterial({
         map: arVideoTex,
         transparent: true,
         side: THREE.DoubleSide,
         depthTest: false,
         depthWrite: false,
       });
-      const matB = matA.clone();
-      matB.map = arVideoTex;
-
       const geo = new THREE.PlaneGeometry(foamW, foamH);
-      // Crossed planes so it reads as volume erupting UP, not a postage stamp stabbed through the tip
-      const planeA = new THREE.Mesh(geo, matA);
-      const planeB = new THREE.Mesh(geo.clone(), matB);
-      planeB.rotation.y = Math.PI / 2;
-
-      // Bottom of plane sits just above crater rim; foam rises upward from the mouth
-      const foamCenterY = craterY + 0.01 + foamH / 2;
-      planeA.position.set(0, foamCenterY, 0);
-      planeB.position.set(0, foamCenterY, 0);
-      planeA.renderOrder = 10;
-      planeB.renderOrder = 10;
-      planeA.visible = false;
-      planeB.visible = false;
-
-      const group = new THREE.Group();
-      group.name = "FoamOverflow";
-      group.add(planeA, planeB);
-      arVideoMesh = group; // used as visibility/toggle root
-      arVideoMesh._planes = [planeA, planeB];
+      arVideoMesh = new THREE.Mesh(geo, mat);
+      // Bottom edge sits on crater mouth — no floating gap
+      arVideoMesh.position.set(0, craterY + foamH / 2, 0);
+      arVideoMesh.renderOrder = 10;
+      arVideoMesh.visible = false;
       return arVideoMesh;
     }
-
     function buildVolcanoGroup() {
       const root = new THREE.Group();
+      const meshRoot = new THREE.Group();
+      // Kitchen cereal-bowl scale
+      meshRoot.scale.setScalar(1.2);
       if (gltfVolcano) {
-        const mesh = gltfVolcano.clone(true);
-        // Ensure upright: +Y up (gltf already Y-up). Scale to kitchen bowl (~30cm tall)
-        mesh.scale.setScalar(1.15);
-        root.add(mesh);
+        meshRoot.add(gltfVolcano.clone(true));
       } else {
         const cone = new THREE.Mesh(
-          new THREE.ConeGeometry(0.18, 0.28, 24, 1, true),
+          new THREE.CylinderGeometry(0.07, 0.16, 0.22, 24, 1, true),
           new THREE.MeshStandardMaterial({ color: 0x734828, roughness: 0.9, metalness: 0 })
         );
-        cone.position.y = 0.14;
-        root.add(cone);
+        cone.position.y = 0.11;
+        meshRoot.add(cone);
       }
-      root.add(makeVideoLayer());
+      // Foam in same mesh space so craterY=0.22 matches the flat rim
+      meshRoot.add(makeVideoLayer());
+      root.add(meshRoot);
       return root;
     }
-
     async function startAR() {
       if (!navigator.xr) {
         alert("WebXR not available. Use Chrome on Android with AR support.");
@@ -413,8 +396,7 @@
 
       arEruptBtn.onclick = async () => {
         if (!volcanoRoot || !arVideo) return;
-        if (arVideoMesh._planes) arVideoMesh._planes.forEach((p) => { p.visible = true; });
-        else arVideoMesh.visible = true;
+        arVideoMesh.visible = true;
         arVideo.currentTime = 0;
         try { await arVideo.play(); } catch (e) { console.warn(e); }
         setMsg("Foam erupting…");
