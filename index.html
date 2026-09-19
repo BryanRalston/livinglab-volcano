@@ -114,7 +114,7 @@
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr9"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr10"
       alt="Bowl-scale baking soda volcano"
       camera-controls
       touch-action="pan-y"
@@ -126,7 +126,7 @@
       reveal="auto"
     ></model-viewer>
     <div class="overlay">
-      <video id="clip" playsinline muted poster="assets/keyed/eruption_frame0.png?v=webxr9"></video>
+      <video id="clip" playsinline muted loop loop poster="assets/keyed/eruption_frame0.png?v=webxr10"></video>
       <img id="clipWebp" alt="Volcano erupting foam">
     </div>
   </div>
@@ -190,11 +190,11 @@
     const arEruptBtn = document.getElementById("arEruptBtn");
     const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr9";
-    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr9";
-    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr9";
-    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/beatA_gs.mp4?v=webxr9";
-    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=webxr9";
+    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr10";
+    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr10";
+    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr10";
+    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/beatA_gs.mp4?v=webxr10";
+    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=webxr10";
 
     let mode = "video";
     let lessonTimer = 0;
@@ -213,18 +213,17 @@
     function playClip() {
       if (lessonTimer) clearTimeout(lessonTimer);
       stage.classList.add("playing");
+      lessonTimer = setTimeout(revealLesson, 20000);
       if (mode === "webp") {
         webpImg.src = "";
         webpImg.src = WEBP;
-        lessonTimer = setTimeout(revealLesson, 20000);
         return;
       }
+      video.loop = true;
       video.currentTime = 0;
       const p = video.play();
       if (p && p.catch) p.catch(() => {});
     }
-
-    video.addEventListener("ended", revealLesson);
     document.getElementById("eruptBtn").addEventListener("click", playClip);
     document.getElementById("replayBtn").addEventListener("click", playClip);
     document.getElementById("quizForm").addEventListener("submit", (e) => {
@@ -269,7 +268,7 @@
       arVideo = document.createElement("video");
       arVideo.playsInline = true;
       arVideo.muted = true;
-      arVideo.loop = false;
+      arVideo.loop = true;
       arVideo.crossOrigin = "anonymous";
       arVideo.setAttribute("playsinline", "");
       arVideo.preload = "auto";
@@ -420,13 +419,11 @@
           arVideoMesh.material.map = arVideoTex;
           arVideoMesh.material.needsUpdate = true;
         }
+        arVideo.loop = true;
         arVideo.currentTime = 0;
         try { await arVideo.play(); } catch (e) { console.warn(e); }
-        setMsg("Pouring soda → vinegar → foam…");
-        arVideo.onended = () => {
-          setMsg("Nice. Exit AR for Why + quiz — or Erupt foam again.");
-          revealLesson();
-        };
+        setMsg("Pouring soda → vinegar → foam (loops). Exit AR for Why + quiz.");
+        lessonTimer = setTimeout(revealLesson, 20000);
       };
 arExitBtn.onclick = () => session.end();
     }
