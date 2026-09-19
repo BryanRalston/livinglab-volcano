@@ -7,3 +7,8 @@ __pycache__/
 .grok/
 assets/keyed/png/
 assets/keyed/_probe_*.png
+assets/verify/
+chrome-debug/
+pages-source.json
+export.md
+BLENDER_PATH.txt

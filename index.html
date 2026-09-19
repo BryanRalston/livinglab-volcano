@@ -54,9 +54,9 @@
       display: none;
     }
     #clipCanvas { background: transparent; }
-    .playing #clip.use-video,
-    .playing #clipCanvas.use-canvas,
-    .playing #clipWebp.use-img { display: block; }
+    #clip.use-video,
+    #clipWebp.use-img { display: block; }
+    .playing #clipCanvas.use-canvas { display: block; }
     .playing model-viewer { opacity: 0; }
     .btns { display: flex; gap: 8px; margin: 12px 0; }
     button {
@@ -115,7 +115,7 @@
       </button>
     </model-viewer>
     <div class="overlay">
-      <video id="clip" playsinline muted></video>
+      <video id="clip" playsinline muted poster="assets/keyed/sample_0000.png"></video>
       <img id="clipWebp" alt="Volcano erupting foam in a cereal bowl">
       <canvas id="clipCanvas" width="720" height="532"></canvas>
     </div>
@@ -169,6 +169,7 @@
     function revealLesson() {
       why.classList.add("show");
       quiz.classList.add("show");
+      why.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
     function canPlayWebm() {
@@ -243,6 +244,7 @@
       if (canPlayWebm()) {
         video.src = WEBM;
         video.classList.add("use-video");
+        video.addEventListener("loadeddata", () => { try { video.currentTime = 0.04; } catch (e) {} }, { once: true });
         mode = "video";
         return;
       }
