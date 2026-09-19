@@ -114,7 +114,7 @@
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr4"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr4b"
       alt="Bowl-scale baking soda volcano"
       camera-controls
       touch-action="pan-y"
@@ -190,10 +190,10 @@
     const arEruptBtn = document.getElementById("arEruptBtn");
     const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr4";
-    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr4";
-    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr4";
-    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/eruption_gs.mp4?v=webxr4";
+    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=webxr4b";
+    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=webxr4b";
+    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=webxr4b";
+    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/eruption_gs.mp4?v=webxr4b";
 
     let mode = "video";
     let lessonTimer = 0;
@@ -374,11 +374,15 @@
         const dz = camPos.z - volcanoRoot.position.z;
         volcanoRoot.rotation.set(0, Math.atan2(dx, dz), 0);
         scene.add(volcanoRoot);
+        if (arVideoMesh) {
+          arVideoMesh.visible = true;
+          if (arVideo) { try { arVideo.pause(); arVideo.currentTime = 0; } catch (_) {} }
+        }
         placed = true;
         reticle.visible = false;
         arPlaceBtn.hidden = true;
         arEruptBtn.hidden = false;
-        setMsg("Placed. Tap Erupt foam — the Imagine volcano sits on your table.");
+        setMsg("Placed — Imagine video is on the table. Tap Erupt foam to play.");
       };
 
       arEruptBtn.onclick = async () => {
