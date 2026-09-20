@@ -4,7 +4,7 @@
   "fps": 24,
   "meaning": "One video loop = 1 Neptune year (~164.8 Earth years). Periods snapped to integer revolution counts for a seamless cut.",
   "scaleNote": "Distances compressed for room/AR; textures from public planet maps (threex/three.js examples lineage).",
-  "look": "Textured Lambert spheres + Saturn ring; sun corona/emissive in live WebXR (sun2: rotation-only, no UV offset).",
+  "look": "Planets textured Lambert; live sun = procedural shader + corona.",
   "planets": [
     {
       "name": "Mercury",
@@ -63,5 +63,5 @@
       "dist": 204
     }
   ],
-  "sunFix": "sun2 removed UV map.offset scroll that tore non-seamless equirect into half-stripe."
+  "sunFix": "sun3 procedural fbm photosphere (object-space noise, no equirect UV). Live AR only; cycle video sun already non-UV-scroll."
 }

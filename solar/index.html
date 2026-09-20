@@ -49,7 +49,7 @@
   <header>
     <p class="back"><a href="../">Living Lab experiments</a></p>
     <h1>Solar System</h1>
-    <p class="sub">Photoreal maps on all eight planets — glowing sun with corona, Saturn rings, Earth atmosphere. Floats in space (no table). Pinch to scale in AR.</p>
+    <p class="sub">Photoreal maps on all eight planets — procedural glowing sun (no stripe seam), corona, Saturn rings, Earth atmosphere. Floats in space (no table). Pinch to scale in AR.</p>
     <p class="note">Orbit timing uses realistic relative periods (integer ratios for a seamless loop). Distances are compressed for your room. One full-cycle video = 1 Neptune year (~164.8 Earth years).</p>
   </header>
 
@@ -70,11 +70,11 @@
     <h2 style="font-size:1.05rem;margin:8px 0 4px">Watch full cycle</h2>
     <p class="hint">Seamless loop from the same orbit integers as the live sim (textured Lambert pass). Not Imagine.</p>
     <video class="cycle" controls loop muted playsinline
-      src="../assets/solar/full_cycle.mp4?v=sun2">
-      <source src="../assets/solar/full_cycle.webm?v=sun2" type="video/webm" />
-      <source src="../assets/solar/full_cycle.mp4?v=sun2" type="video/mp4" />
+      src="../assets/solar/full_cycle.mp4?v=sun3">
+      <source src="../assets/solar/full_cycle.webm?v=sun3" type="video/webm" />
+      <source src="../assets/solar/full_cycle.mp4?v=sun3" type="video/mp4" />
     </video>
-    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=sun2" download style="color:#8ab4ff">Download MP4</a></p>
+    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=sun3" download style="color:#8ab4ff">Download MP4</a></p>
   </div>
 
   <section class="lesson" id="lesson">
@@ -104,7 +104,7 @@
     import * as THREE from "three";
 
     const TEX = "../assets/solar/textures/";
-    const V = "?v=sun2";
+    const V = "?v=sun3";
     const AR_DEFAULT_SCALE = 2.6;
     const PREVIEW_SCALE = 1;
 
@@ -179,25 +179,78 @@
     const orbitGuides = [];
 
     async function build() {
-      const sunMap = await loadMap("sun.jpg");
-      // Emissive photosphere (no bloom — keeps mobile AR smooth)
-      // Same texture for map + emissiveMap; NO uv offset scroll (non-seamless equirect stripes)
-      sunMap.wrapS = sunMap.wrapT = THREE.ClampToEdgeWrapping;
-      sunMap.offset.set(0, 0);
-      sunMap.repeat.set(1, 1);
-      sunMap.needsUpdate = true;
-      const sunMat = new THREE.MeshStandardMaterial({
-        map: sunMap,
-        emissiveMap: sunMap,
-        emissive: new THREE.Color(0xffcc66),
-        emissiveIntensity: 2.4,
-        roughness: 1,
-        metalness: 0,
+      // sun3: procedural photosphere — NO equirect UV map (device still striped on sun2)
+      const sunUniforms = {
+        uTime: { value: 0 },
+        uColorCore: { value: new THREE.Color(0xfff5c8) },
+        uColorMid: { value: new THREE.Color(0xffb020) },
+        uColorEdge: { value: new THREE.Color(0xff6a00) },
+      };
+      const sunMat = new THREE.ShaderMaterial({
+        uniforms: sunUniforms,
         toneMapped: false,
+        vertexShader: `
+          varying vec3 vPos;
+          varying vec3 vNormal;
+          void main() {
+            vPos = position;
+            vNormal = normalize(normalMatrix * normal);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform float uTime;
+          uniform vec3 uColorCore;
+          uniform vec3 uColorMid;
+          uniform vec3 uColorEdge;
+          varying vec3 vPos;
+          varying vec3 vNormal;
+          // Simplex-ish value noise on object-space position (no UVs → no equirect seam/stripes)
+          float hash(vec3 p) {
+            p = fract(p * 0.3183099 + vec3(0.1, 0.2, 0.3));
+            p *= 17.0;
+            return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+          }
+          float noise(vec3 x) {
+            vec3 i = floor(x);
+            vec3 f = fract(x);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(
+              mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+                  mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+              mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                  mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y),
+              f.z
+            );
+          }
+          float fbm(vec3 p) {
+            float a = 0.0;
+            float w = 0.5;
+            for (int i = 0; i < 5; i++) {
+              a += w * noise(p);
+              p = p * 2.03 + 17.1;
+              w *= 0.5;
+            }
+            return a;
+          }
+          void main() {
+            vec3 n = normalize(vPos);
+            // Slow churn in object space — whole sphere mottled, no longitude seam
+            float t = uTime * 0.15;
+            float m = fbm(n * 3.5 + vec3(t, t * 0.7, -t * 0.4));
+            float m2 = fbm(n * 7.0 - vec3(t * 0.5, -t, t * 0.3));
+            float mottled = clamp(m * 0.75 + m2 * 0.35, 0.0, 1.0);
+            vec3 col = mix(uColorEdge, uColorMid, mottled);
+            col = mix(col, uColorCore, pow(mottled, 2.2) * 0.85);
+            // Soft limb brightening
+            float fres = pow(1.0 - max(dot(normalize(vNormal), vec3(0.0, 0.0, 1.0)), 0.0), 2.0);
+            col += uColorCore * fres * 0.25;
+            gl_FragColor = vec4(col, 1.0);
+          }
+        `,
       });
       const sun = new THREE.Mesh(new THREE.SphereGeometry(0.085, 64, 64), sunMat);
       root.add(sun);
-      // Soft corona / haze shells (additive)
       const coronaMats = [];
       const coronaLayers = [
         { scale: 1.18, color: 0xffe8a0, opacity: 0.45 },
@@ -215,14 +268,9 @@
           toneMapped: false,
         });
         coronaMats.push(mat);
-        const shell = new THREE.Mesh(
-          new THREE.SphereGeometry(0.085 * layer.scale, 32, 32),
-          mat
-        );
-        root.add(shell);
+        root.add(new THREE.Mesh(new THREE.SphereGeometry(0.085 * layer.scale, 32, 32), mat));
       }
-      // Keep refs for UV scroll + light follow
-      window.__solarSun = { sun, sunMat, coronaMats };
+      window.__solarSun = { sun, sunMat, coronaMats, sunUniforms };
 
       for (const p of PLANETS) {
         const orbit = new THREE.Group();
@@ -332,9 +380,12 @@
         b.orbit.rotation.y = 2 * Math.PI * b.orbits * u;
         b.mesh.rotation.y = 2 * Math.PI * b.spins * u;
       }
-      // Surface motion = mesh spin only (UV offset + ClampToEdge caused half-sphere stripes)
+      // sun3: procedural noise time + slow spin (no UV maps)
       if (window.__solarSun) {
-        window.__solarSun.sun.rotation.y += dt * 0.08;
+        if (window.__solarSun.sunUniforms) {
+          window.__solarSun.sunUniforms.uTime.value += dt;
+        }
+        window.__solarSun.sun.rotation.y += dt * 0.06;
       }
       if (!renderer.xr.isPresenting) root.rotation.y += dt * 0.035;
       applyScale();
