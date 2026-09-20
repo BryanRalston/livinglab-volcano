@@ -21,6 +21,10 @@
     button { border:0; border-radius:999px; padding:10px 14px; font-weight:650; font-size:0.95rem; }
     .ar { background:var(--accent); color:#fff; }
     .exit { background:#2a3348; color:#fff; }
+    .rec { background:#c62828; color:#fff; }
+    .rec.on { background:#8e0000; animation: pulse 1.2s ease infinite; }
+    @keyframes pulse { 50% { opacity: 0.75; } }
+    #iosNote { display:none; background:#1a2238; border:1px solid #2a3a58; border-radius:12px; padding:10px 12px; margin-top:8px; }
     .lesson { display:none; padding-bottom:28px; }
     .lesson.show { display:block; }
     .quiz label { display:block; background:var(--card); border:1px solid #243049; border-radius:12px; padding:10px 12px; margin:8px 0; }
@@ -56,11 +60,15 @@
   <div class="stage" id="stage"><canvas id="view"></canvas></div>
 
   <div class="panel">
-    <p class="hint">Tap <strong>Enter AR</strong> (Samsung Chrome / Android WebXR). In AR, pinch with two fingers to scale — system sits about a meter in front of you.</p>
+    <p class="hint" id="arHint">Tap <strong>Enter AR</strong> on Android Chrome for passthrough. Pinch to scale. Use <strong>Record</strong> to save what you see for improvements.</p>
+    <div id="iosNote" class="hint">
+      <strong>iPhone / iPad:</strong> WebXR AR isn’t available in Safari yet — use the live preview here (pinch/wheel to scale). Tap Record to capture a clip. For table AR on iOS we’ll add Quick Look next.
+    </div>
     <label class="hint" for="speed">Live speed: <span id="speedVal">30</span>× (Earth days / real second)</label>
     <input id="speed" type="range" min="1" max="120" value="30" />
     <div class="row">
       <button class="ar" id="arBtn" type="button">Enter AR</button>
+      <button class="rec" id="recBtn" type="button">Record</button>
       <button class="exit" id="previewBtn" type="button">Reset preview</button>
     </div>
     <p id="status">Loading planet textures…</p>
@@ -70,11 +78,11 @@
     <h2 style="font-size:1.05rem;margin:8px 0 4px">Watch full cycle</h2>
     <p class="hint">Seamless loop from the same orbit integers as the live sim (textured Lambert pass). Not Imagine.</p>
     <video class="cycle" controls loop muted playsinline
-      src="../assets/solar/full_cycle.mp4?v=sun6">
-      <source src="../assets/solar/full_cycle.webm?v=sun6" type="video/webm" />
-      <source src="../assets/solar/full_cycle.mp4?v=sun6" type="video/mp4" />
+      src="../assets/solar/full_cycle.mp4?v=cap1">
+      <source src="../assets/solar/full_cycle.webm?v=cap1" type="video/webm" />
+      <source src="../assets/solar/full_cycle.mp4?v=cap1" type="video/mp4" />
     </video>
-    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=sun6" download style="color:#8ab4ff">Download MP4</a></p>
+    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=cap1" download style="color:#8ab4ff">Download MP4</a></p>
   </div>
 
   <section class="lesson" id="lesson">
@@ -95,6 +103,7 @@
       <p id="arMsg" style="text-align:center;margin:0 0 8px">Pinch anywhere to scale · system ~1 m in front</p>
       <div class="row">
         <button class="exit" id="arExit" type="button">Exit AR</button>
+        <button class="rec" id="arRecBtn" type="button">Record</button>
         <button class="ar" id="arWhy" type="button">Why + quiz</button>
       </div>
     </div>
@@ -104,7 +113,7 @@
     import * as THREE from "three";
 
     const TEX = "../assets/solar/textures/";
-    const V = "?v=sun6";
+    const V = "?v=cap1";
     const AR_DEFAULT_SCALE = 2.6;
     const PREVIEW_SCALE = 1;
 
@@ -136,7 +145,102 @@
       status.classList.toggle("err", !!isErr);
     }
 
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    const recBtn = document.getElementById("recBtn");
+    const arRecBtn = document.getElementById("arRecBtn");
+    const iosNote = document.getElementById("iosNote");
+    const arHint = document.getElementById("arHint");
+
+    const ua = navigator.userAgent || "";
+    const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+    if (isIOS && iosNote && arHint) {
+      iosNote.style.display = "block";
+      arHint.textContent = "On iPhone/iPad: use the live preview + pinch to explore. Record saves a clip for improvement notes. Enter AR needs Android Chrome (WebXR).";
+    }
+
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let recording = false;
+
+    function pickMime() {
+      const types = [
+        "video/mp4",
+        "video/webm;codecs=vp9",
+        "video/webm;codecs=vp8",
+        "video/webm",
+      ];
+      for (const mt of types) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported(mt)) return mt;
+      }
+      return "";
+    }
+
+    function syncRecButtons() {
+      for (const b of [recBtn, arRecBtn]) {
+        if (!b) continue;
+        b.classList.toggle("on", recording);
+        b.textContent = recording ? "Stop" : "Record";
+      }
+    }
+
+    function downloadBlob(blob, ext) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "livinglab-solar-" + new Date().toISOString().replace(/[:.]/g, "-") + ext;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    async function toggleRecord() {
+      if (recording && mediaRecorder) {
+        mediaRecorder.stop();
+        return;
+      }
+      if (!window.MediaRecorder) {
+        setStatus("Recording not supported in this browser — try Chrome or Safari 17+.", true);
+        return;
+      }
+      const mime = pickMime();
+      if (!mime) {
+        setStatus("No recordable video format on this device.", true);
+        return;
+      }
+      try {
+        const stream = canvas.captureStream(30);
+        recordedChunks = [];
+        mediaRecorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 4000000 });
+        mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) recordedChunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          recording = false;
+          syncRecButtons();
+          const blob = new Blob(recordedChunks, { type: mime });
+          const ext = mime.indexOf("mp4") >= 0 ? ".mp4" : ".webm";
+          downloadBlob(blob, ext);
+          setStatus("Saved recording (" + Math.round(blob.size / 1024) + " KB). Share it for improvements.");
+          mediaRecorder = null;
+        };
+        mediaRecorder.onerror = () => {
+          recording = false;
+          syncRecButtons();
+          setStatus("Record failed.", true);
+        };
+        mediaRecorder.start(200);
+        recording = true;
+        syncRecButtons();
+        setStatus("Recording… tap Stop when done.");
+      } catch (e) {
+        setStatus("Could not start recording: " + (e.message || e), true);
+      }
+    }
+
+    if (recBtn) recBtn.addEventListener("click", toggleRecord);
+    if (arRecBtn) arRecBtn.addEventListener("click", toggleRecord);
+
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.xr.enabled = true;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -459,8 +563,13 @@
     let xrSession = null;
     document.getElementById("arBtn").onclick = async () => {
       setStatus("Checking WebXR…");
+      if (isIOS) {
+        setStatus("iPhone/iPad: WebXR AR isn’t in Safari yet — use preview + Record. Android Chrome for Enter AR.", true);
+        revealLesson();
+        return;
+      }
       if (!navigator.xr) {
-        setStatus("WebXR missing — open in Samsung Chrome (Android). Preview + video still work.", true);
+        setStatus("WebXR missing — open in Samsung Chrome (Android). Preview + Record still work.", true);
         revealLesson();
         return;
       }
