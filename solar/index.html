@@ -70,11 +70,11 @@
     <h2 style="font-size:1.05rem;margin:8px 0 4px">Watch full cycle</h2>
     <p class="hint">Seamless loop from the same orbit integers as the live sim (textured Lambert pass). Not Imagine.</p>
     <video class="cycle" controls loop muted playsinline
-      src="../assets/solar/full_cycle.mp4?v=sun5">
-      <source src="../assets/solar/full_cycle.webm?v=sun5" type="video/webm" />
-      <source src="../assets/solar/full_cycle.mp4?v=sun5" type="video/mp4" />
+      src="../assets/solar/full_cycle.mp4?v=sun6">
+      <source src="../assets/solar/full_cycle.webm?v=sun6" type="video/webm" />
+      <source src="../assets/solar/full_cycle.mp4?v=sun6" type="video/mp4" />
     </video>
-    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=sun5" download style="color:#8ab4ff">Download MP4</a></p>
+    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=sun6" download style="color:#8ab4ff">Download MP4</a></p>
   </div>
 
   <section class="lesson" id="lesson">
@@ -104,7 +104,7 @@
     import * as THREE from "three";
 
     const TEX = "../assets/solar/textures/";
-    const V = "?v=sun5";
+    const V = "?v=sun6";
     const AR_DEFAULT_SCALE = 2.6;
     const PREVIEW_SCALE = 1;
 
@@ -179,12 +179,12 @@
     const orbitGuides = [];
 
     async function build() {
-      // sun5 (=sun3 photosphere restore): procedural photosphere — NO equirect UV map (device still striped on sun2)
+      // sun6: sun5 path + higher contrast granulation / softer corona (same 2xfbm cost — Samsung-safe)
       const sunUniforms = {
         uTime: { value: 0 },
-        uColorCore: { value: new THREE.Color(0xfff5c8) },
-        uColorMid: { value: new THREE.Color(0xffb020) },
-        uColorEdge: { value: new THREE.Color(0xff6a00) },
+        uColorCore: { value: new THREE.Color(0xfff6d0) },
+        uColorMid: { value: new THREE.Color(0xff9e18) },
+        uColorEdge: { value: new THREE.Color(0xe04800) },
       };
       const sunMat = new THREE.ShaderMaterial({
         uniforms: sunUniforms,
@@ -235,16 +235,17 @@
           }
           void main() {
             vec3 n = normalize(vPos);
-            // Slow churn in object space — whole sphere mottled, no longitude seam
-            float t = uTime * 0.15;
-            float m = fbm(n * 3.5 + vec3(t, t * 0.7, -t * 0.4));
-            float m2 = fbm(n * 7.0 - vec3(t * 0.5, -t, t * 0.3));
-            float mottled = clamp(m * 0.75 + m2 * 0.35, 0.0, 1.0);
+            // Same light cost as sun5 (2xfbm) — higher contrast granulation only
+            float t = uTime * 0.14;
+            float m = fbm(n * 3.8 + vec3(t, t * 0.7, -t * 0.4));
+            float m2 = fbm(n * 8.0 - vec3(t * 0.5, -t, t * 0.3));
+            float mottled = clamp(m * 0.72 + m2 * 0.38, 0.0, 1.0);
+            mottled = smoothstep(0.22, 0.88, mottled);
             vec3 col = mix(uColorEdge, uColorMid, mottled);
-            col = mix(col, uColorCore, pow(mottled, 2.2) * 0.85);
-            // Soft limb brightening
-            float fres = pow(1.0 - max(dot(normalize(vNormal), vec3(0.0, 0.0, 1.0)), 0.0), 2.0);
-            col += uColorCore * fres * 0.25;
+            col = mix(col, uColorCore, pow(mottled, 1.85) * 0.9);
+            // Soft limb brightening (cheap vNormal fres — Samsung-safe)
+            float fres = pow(1.0 - max(dot(normalize(vNormal), vec3(0.0, 0.0, 1.0)), 0.0), 1.7);
+            col += uColorCore * fres * 0.32;
             gl_FragColor = vec4(col, 1.0);
           }
         `,
@@ -253,9 +254,9 @@
       root.add(sun);
       const coronaMats = [];
       const coronaLayers = [
-        { scale: 1.18, color: 0xffe8a0, opacity: 0.45 },
-        { scale: 1.45, color: 0xffb040, opacity: 0.22 },
-        { scale: 1.9,  color: 0xff8020, opacity: 0.10 },
+        { scale: 1.14, color: 0xfff0b8, opacity: 0.40 },
+        { scale: 1.48, color: 0xffc060, opacity: 0.18 },
+        { scale: 2.05, color: 0xff7818, opacity: 0.07 },
       ];
       for (const layer of coronaLayers) {
         const mat = new THREE.MeshBasicMaterial({
