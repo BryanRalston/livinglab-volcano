@@ -1,79 +1,767 @@
 #usda 1.0
 (
-    defaultPrim = "SolarSystem"
-    metersPerUnit = 1
-    upAxis = "Y"
+	customLayerData = {
+		string creator = "Three.js USDZExporter"
+	}
+	defaultPrim = "Root"
+	metersPerUnit = 1
+	upAxis = "Y"
 )
 
-def Xform "SolarSystem" (
-    prepend apiSchemas = ["Preliminary_AnchoringAPI"]
+def Xform "Root"
+{
+	def Scope "Scenes" (
+		kind = "sceneLibrary"
+	)
+	{
+		def Xform "Scene" (
+			customData = {
+				bool preliminary_collidesWithEnvironment = 0
+				string sceneName = "Scene"
+			}
+			sceneName = "Scene"
+		)
+		{
+		token preliminary:anchoring:type = "plane"
+		token preliminary:planeAnchoring:alignment = "horizontal"
+
+def Xform "Object_6" (
+	prepend references = @./geometries/Geometry_2.usda@</Geometry>
+	prepend apiSchemas = ["MaterialBindingAPI"]
 )
 {
-    token preliminary:anchoring:type = "plane"
-    uniform token preliminary:anchoring:planeAnchoring:alignment = "horizontal"
+	matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+	uniform token[] xformOpOrder = ["xformOp:transform"]
 
-    def Sphere "Sun" {
-        double radius = 0.045
-        double3 xformOp:translate = (0, 0.045, 0)
-        uniform token[] xformOpOrder = ["xformOp:translate"]
-        color3f[] primvars:displayColor = [(1.0, 0.72, 0.15)]
-        color3f[] primvars:displayColor = [(1.0, 0.72, 0.15)]
-    }
+	rel material:binding = </Materials/Material_2>
+}
 
-    def Sphere "Mercury" {
-        double radius = 0.008
-        double3 xformOp:translate = (0.1, 0.045, 0)
-        uniform token[] xformOpOrder = ["xformOp:translate"]
-        color3f[] primvars:displayColor = [(0.69, 0.69, 0.69)]
-    }
+def Xform "Object_7" (
+	prepend references = @./geometries/Geometry_3.usda@</Geometry>
+	prepend apiSchemas = ["MaterialBindingAPI"]
+)
+{
+	matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+	uniform token[] xformOpOrder = ["xformOp:transform"]
 
-    def Sphere "Venus" {
-        double radius = 0.011
-        double3 xformOp:translate = (0.14, 0.045, 0)
-        uniform token[] xformOpOrder = ["xformOp:translate"]
-        color3f[] primvars:displayColor = [(0.88, 0.75, 0.5)]
-    }
+	rel material:binding = </Materials/Material_3>
+}
 
-    def Sphere "Earth" {
-        double radius = 0.012
-        double3 xformOp:translate = (0.18, 0.045, 0)
-        uniform token[] xformOpOrder = ["xformOp:translate"]
-        color3f[] primvars:displayColor = [(0.31, 0.56, 0.87)]
-    }
+def Xform "Object_8" (
+	prepend references = @./geometries/Geometry_4.usda@</Geometry>
+	prepend apiSchemas = ["MaterialBindingAPI"]
+)
+{
+	matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+	uniform token[] xformOpOrder = ["xformOp:transform"]
 
-    def Sphere "Mars" {
-        double radius = 0.01
-        double3 xformOp:translate = (0.23, 0.045, 0)
-        uniform token[] xformOpOrder = ["xformOp:translate"]
-        color3f[] primvars:displayColor = [(0.82, 0.4, 0.23)]
-    }
+	rel material:binding = </Materials/Material_4>
+}
 
-    def Sphere "Jupiter" {
-        double radius = 0.028
-        double3 xformOp:translate = (0.32, 0.045, 0)
-        uniform token[] xformOpOrder = ["xformOp:translate"]
-        color3f[] primvars:displayColor = [(0.82, 0.67, 0.47)]
-    }
+def Xform "Object_9" (
+	prepend references = @./geometries/Geometry_5.usda@</Geometry>
+	prepend apiSchemas = ["MaterialBindingAPI"]
+)
+{
+	matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+	uniform token[] xformOpOrder = ["xformOp:transform"]
 
-    def Sphere "Saturn" {
-        double radius = 0.024
-        double3 xformOp:translate = (0.41, 0.045, 0)
-        uniform token[] xformOpOrder = ["xformOp:translate"]
-        color3f[] primvars:displayColor = [(0.86, 0.78, 0.55)]
-    }
+	rel material:binding = </Materials/Material_5>
+}
 
-    def Sphere "Uranus" {
-        double radius = 0.017
-        double3 xformOp:translate = (0.5, 0.045, 0)
-        uniform token[] xformOpOrder = ["xformOp:translate"]
-        color3f[] primvars:displayColor = [(0.59, 0.82, 0.86)]
-    }
+def Xform "Object_10" (
+	prepend references = @./geometries/Geometry_6.usda@</Geometry>
+	prepend apiSchemas = ["MaterialBindingAPI"]
+)
+{
+	matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+	uniform token[] xformOpOrder = ["xformOp:transform"]
 
-    def Sphere "Neptune" {
-        double radius = 0.016
-        double3 xformOp:translate = (0.58, 0.045, 0)
-        uniform token[] xformOpOrder = ["xformOp:translate"]
-        color3f[] primvars:displayColor = [(0.27, 0.43, 0.82)]
-    }
+	rel material:binding = </Materials/Material_6>
+}
+
+def Xform "Object_11" (
+	prepend references = @./geometries/Geometry_7.usda@</Geometry>
+	prepend apiSchemas = ["MaterialBindingAPI"]
+)
+{
+	matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+	uniform token[] xformOpOrder = ["xformOp:transform"]
+
+	rel material:binding = </Materials/Material_7>
+}
+
+def Xform "Object_12" (
+	prepend references = @./geometries/Geometry_8.usda@</Geometry>
+	prepend apiSchemas = ["MaterialBindingAPI"]
+)
+{
+	matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+	uniform token[] xformOpOrder = ["xformOp:transform"]
+
+	rel material:binding = </Materials/Material_8>
+}
+
+def Xform "Object_13" (
+	prepend references = @./geometries/Geometry_9.usda@</Geometry>
+	prepend apiSchemas = ["MaterialBindingAPI"]
+)
+{
+	matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+	uniform token[] xformOpOrder = ["xformOp:transform"]
+
+	rel material:binding = </Materials/Material_9>
+}
+
+def Xform "Object_14" (
+	prepend references = @./geometries/Geometry_9.usda@</Geometry>
+	prepend apiSchemas = ["MaterialBindingAPI"]
+)
+{
+	matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+	uniform token[] xformOpOrder = ["xformOp:transform"]
+
+	rel material:binding = </Materials/Material_10>
+}
+
+def Xform "Object_15" (
+	prepend references = @./geometries/Geometry_10.usda@</Geometry>
+	prepend apiSchemas = ["MaterialBindingAPI"]
+)
+{
+	matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+	uniform token[] xformOpOrder = ["xformOp:transform"]
+
+	rel material:binding = </Materials/Material_11>
+}
+
+def Xform "Object_16" (
+	prepend references = @./geometries/Geometry_11.usda@</Geometry>
+	prepend apiSchemas = ["MaterialBindingAPI"]
+)
+{
+	matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1) )
+	uniform token[] xformOpOrder = ["xformOp:transform"]
+
+	rel material:binding = </Materials/Material_12>
+}
+
+
+		}
+	}
+}
+
+def "Materials"
+{
+
+	def Material "Material_2"
+	{
+		def Shader "PreviewSurface"
+		{
+			uniform token info:id = "UsdPreviewSurface"
+			color3f inputs:diffuseColor.connect = </Materials/Material_2/Texture_5_diffuse.outputs:rgb>
+			color3f inputs:emissiveColor.connect = </Materials/Material_2/Texture_5_emissive.outputs:rgb>
+			float inputs:roughness = 0.55
+			float inputs:metallic = 0.05
+			float inputs:opacity = 1
+			int inputs:useSpecularWorkflow = 0
+			token outputs:surface
+		}
+
+		token outputs:surface.connect = </Materials/Material_2/PreviewSurface.outputs:surface>
+
+
+		def Shader "PrimvarReader_diffuse"
+		{
+			uniform token info:id = "UsdPrimvarReader_float2"
+			float2 inputs:fallback = (0.0, 0.0)
+			token inputs:varname = "st"
+			float2 outputs:result
+		}
+
+		def Shader "Transform2d_diffuse"
+		{
+			uniform token info:id = "UsdTransform2d"
+			token inputs:in.connect = </Materials/Material_2/PrimvarReader_diffuse.outputs:result>
+			float inputs:rotation = 0.0000000
+			float2 inputs:scale = (1, 1)
+			float2 inputs:translation = (0, 0)
+			float2 outputs:result
+		}
+
+		def Shader "Texture_5_diffuse"
+		{
+			uniform token info:id = "UsdUVTexture"
+			asset inputs:file = @textures/Texture_5_true.png@
+			float2 inputs:st.connect = </Materials/Material_2/Transform2d_diffuse.outputs:result>
+			float4 inputs:scale = (1, 1, 1, 1.0)
+			token inputs:sourceColorSpace = "sRGB"
+			token inputs:wrapS = "clamp"
+			token inputs:wrapT = "clamp"
+			float outputs:r
+			float outputs:g
+			float outputs:b
+			float3 outputs:rgb
+			
+		}
+
+		def Shader "PrimvarReader_emissive"
+		{
+			uniform token info:id = "UsdPrimvarReader_float2"
+			float2 inputs:fallback = (0.0, 0.0)
+			token inputs:varname = "st"
+			float2 outputs:result
+		}
+
+		def Shader "Transform2d_emissive"
+		{
+			uniform token info:id = "UsdTransform2d"
+			token inputs:in.connect = </Materials/Material_2/PrimvarReader_emissive.outputs:result>
+			float inputs:rotation = 0.0000000
+			float2 inputs:scale = (1, 1)
+			float2 inputs:translation = (0, 0)
+			float2 outputs:result
+		}
+
+		def Shader "Texture_5_emissive"
+		{
+			uniform token info:id = "UsdUVTexture"
+			asset inputs:file = @textures/Texture_5_true.png@
+			float2 inputs:st.connect = </Materials/Material_2/Transform2d_emissive.outputs:result>
+			
+			token inputs:sourceColorSpace = "sRGB"
+			token inputs:wrapS = "clamp"
+			token inputs:wrapT = "clamp"
+			float outputs:r
+			float outputs:g
+			float outputs:b
+			float3 outputs:rgb
+			
+		}
+
+	}
+
+	def Material "Material_3"
+	{
+		def Shader "PreviewSurface"
+		{
+			uniform token info:id = "UsdPreviewSurface"
+			color3f inputs:diffuseColor.connect = </Materials/Material_3/Texture_6_diffuse.outputs:rgb>
+			float inputs:roughness = 0.9
+			float inputs:metallic = 0.05
+			float inputs:opacity = 1
+			int inputs:useSpecularWorkflow = 0
+			token outputs:surface
+		}
+
+		token outputs:surface.connect = </Materials/Material_3/PreviewSurface.outputs:surface>
+
+
+		def Shader "PrimvarReader_diffuse"
+		{
+			uniform token info:id = "UsdPrimvarReader_float2"
+			float2 inputs:fallback = (0.0, 0.0)
+			token inputs:varname = "st"
+			float2 outputs:result
+		}
+
+		def Shader "Transform2d_diffuse"
+		{
+			uniform token info:id = "UsdTransform2d"
+			token inputs:in.connect = </Materials/Material_3/PrimvarReader_diffuse.outputs:result>
+			float inputs:rotation = 0.0000000
+			float2 inputs:scale = (1, 1)
+			float2 inputs:translation = (0, 0)
+			float2 outputs:result
+		}
+
+		def Shader "Texture_6_diffuse"
+		{
+			uniform token info:id = "UsdUVTexture"
+			asset inputs:file = @textures/Texture_6_true.png@
+			float2 inputs:st.connect = </Materials/Material_3/Transform2d_diffuse.outputs:result>
+			float4 inputs:scale = (1, 1, 1, 1.0)
+			token inputs:sourceColorSpace = "sRGB"
+			token inputs:wrapS = "clamp"
+			token inputs:wrapT = "clamp"
+			float outputs:r
+			float outputs:g
+			float outputs:b
+			float3 outputs:rgb
+			
+		}
+
+	}
+
+	def Material "Material_4"
+	{
+		def Shader "PreviewSurface"
+		{
+			uniform token info:id = "UsdPreviewSurface"
+			color3f inputs:diffuseColor.connect = </Materials/Material_4/Texture_7_diffuse.outputs:rgb>
+			float inputs:roughness = 0.75
+			float inputs:metallic = 0.05
+			float inputs:opacity = 1
+			int inputs:useSpecularWorkflow = 0
+			token outputs:surface
+		}
+
+		token outputs:surface.connect = </Materials/Material_4/PreviewSurface.outputs:surface>
+
+
+		def Shader "PrimvarReader_diffuse"
+		{
+			uniform token info:id = "UsdPrimvarReader_float2"
+			float2 inputs:fallback = (0.0, 0.0)
+			token inputs:varname = "st"
+			float2 outputs:result
+		}
+
+		def Shader "Transform2d_diffuse"
+		{
+			uniform token info:id = "UsdTransform2d"
+			token inputs:in.connect = </Materials/Material_4/PrimvarReader_diffuse.outputs:result>
+			float inputs:rotation = 0.0000000
+			float2 inputs:scale = (1, 1)
+			float2 inputs:translation = (0, 0)
+			float2 outputs:result
+		}
+
+		def Shader "Texture_7_diffuse"
+		{
+			uniform token info:id = "UsdUVTexture"
+			asset inputs:file = @textures/Texture_7_true.png@
+			float2 inputs:st.connect = </Materials/Material_4/Transform2d_diffuse.outputs:result>
+			float4 inputs:scale = (1, 1, 1, 1.0)
+			token inputs:sourceColorSpace = "sRGB"
+			token inputs:wrapS = "clamp"
+			token inputs:wrapT = "clamp"
+			float outputs:r
+			float outputs:g
+			float outputs:b
+			float3 outputs:rgb
+			
+		}
+
+	}
+
+	def Material "Material_5"
+	{
+		def Shader "PreviewSurface"
+		{
+			uniform token info:id = "UsdPreviewSurface"
+			color3f inputs:diffuseColor.connect = </Materials/Material_5/Texture_8_diffuse.outputs:rgb>
+			float inputs:roughness = 0.55
+			float inputs:metallic = 0.05
+			float inputs:opacity = 1
+			int inputs:useSpecularWorkflow = 0
+			token outputs:surface
+		}
+
+		token outputs:surface.connect = </Materials/Material_5/PreviewSurface.outputs:surface>
+
+
+		def Shader "PrimvarReader_diffuse"
+		{
+			uniform token info:id = "UsdPrimvarReader_float2"
+			float2 inputs:fallback = (0.0, 0.0)
+			token inputs:varname = "st"
+			float2 outputs:result
+		}
+
+		def Shader "Transform2d_diffuse"
+		{
+			uniform token info:id = "UsdTransform2d"
+			token inputs:in.connect = </Materials/Material_5/PrimvarReader_diffuse.outputs:result>
+			float inputs:rotation = 0.0000000
+			float2 inputs:scale = (1, 1)
+			float2 inputs:translation = (0, 0)
+			float2 outputs:result
+		}
+
+		def Shader "Texture_8_diffuse"
+		{
+			uniform token info:id = "UsdUVTexture"
+			asset inputs:file = @textures/Texture_8_true.png@
+			float2 inputs:st.connect = </Materials/Material_5/Transform2d_diffuse.outputs:result>
+			float4 inputs:scale = (1, 1, 1, 1.0)
+			token inputs:sourceColorSpace = "sRGB"
+			token inputs:wrapS = "clamp"
+			token inputs:wrapT = "clamp"
+			float outputs:r
+			float outputs:g
+			float outputs:b
+			float3 outputs:rgb
+			
+		}
+
+	}
+
+	def Material "Material_6"
+	{
+		def Shader "PreviewSurface"
+		{
+			uniform token info:id = "UsdPreviewSurface"
+			color3f inputs:diffuseColor.connect = </Materials/Material_6/Texture_9_diffuse.outputs:rgb>
+			float inputs:roughness = 0.85
+			float inputs:metallic = 0.05
+			float inputs:opacity = 1
+			int inputs:useSpecularWorkflow = 0
+			token outputs:surface
+		}
+
+		token outputs:surface.connect = </Materials/Material_6/PreviewSurface.outputs:surface>
+
+
+		def Shader "PrimvarReader_diffuse"
+		{
+			uniform token info:id = "UsdPrimvarReader_float2"
+			float2 inputs:fallback = (0.0, 0.0)
+			token inputs:varname = "st"
+			float2 outputs:result
+		}
+
+		def Shader "Transform2d_diffuse"
+		{
+			uniform token info:id = "UsdTransform2d"
+			token inputs:in.connect = </Materials/Material_6/PrimvarReader_diffuse.outputs:result>
+			float inputs:rotation = 0.0000000
+			float2 inputs:scale = (1, 1)
+			float2 inputs:translation = (0, 0)
+			float2 outputs:result
+		}
+
+		def Shader "Texture_9_diffuse"
+		{
+			uniform token info:id = "UsdUVTexture"
+			asset inputs:file = @textures/Texture_9_true.png@
+			float2 inputs:st.connect = </Materials/Material_6/Transform2d_diffuse.outputs:result>
+			float4 inputs:scale = (1, 1, 1, 1.0)
+			token inputs:sourceColorSpace = "sRGB"
+			token inputs:wrapS = "clamp"
+			token inputs:wrapT = "clamp"
+			float outputs:r
+			float outputs:g
+			float outputs:b
+			float3 outputs:rgb
+			
+		}
+
+	}
+
+	def Material "Material_7"
+	{
+		def Shader "PreviewSurface"
+		{
+			uniform token info:id = "UsdPreviewSurface"
+			color3f inputs:diffuseColor.connect = </Materials/Material_7/Texture_10_diffuse.outputs:rgb>
+			float inputs:roughness = 0.65
+			float inputs:metallic = 0.05
+			float inputs:opacity = 1
+			int inputs:useSpecularWorkflow = 0
+			token outputs:surface
+		}
+
+		token outputs:surface.connect = </Materials/Material_7/PreviewSurface.outputs:surface>
+
+
+		def Shader "PrimvarReader_diffuse"
+		{
+			uniform token info:id = "UsdPrimvarReader_float2"
+			float2 inputs:fallback = (0.0, 0.0)
+			token inputs:varname = "st"
+			float2 outputs:result
+		}
+
+		def Shader "Transform2d_diffuse"
+		{
+			uniform token info:id = "UsdTransform2d"
+			token inputs:in.connect = </Materials/Material_7/PrimvarReader_diffuse.outputs:result>
+			float inputs:rotation = 0.0000000
+			float2 inputs:scale = (1, 1)
+			float2 inputs:translation = (0, 0)
+			float2 outputs:result
+		}
+
+		def Shader "Texture_10_diffuse"
+		{
+			uniform token info:id = "UsdUVTexture"
+			asset inputs:file = @textures/Texture_10_true.png@
+			float2 inputs:st.connect = </Materials/Material_7/Transform2d_diffuse.outputs:result>
+			float4 inputs:scale = (1, 1, 1, 1.0)
+			token inputs:sourceColorSpace = "sRGB"
+			token inputs:wrapS = "clamp"
+			token inputs:wrapT = "clamp"
+			float outputs:r
+			float outputs:g
+			float outputs:b
+			float3 outputs:rgb
+			
+		}
+
+	}
+
+	def Material "Material_8"
+	{
+		def Shader "PreviewSurface"
+		{
+			uniform token info:id = "UsdPreviewSurface"
+			color3f inputs:diffuseColor.connect = </Materials/Material_8/Texture_11_diffuse.outputs:rgb>
+			float inputs:roughness = 0.7
+			float inputs:metallic = 0.05
+			float inputs:opacity = 1
+			int inputs:useSpecularWorkflow = 0
+			token outputs:surface
+		}
+
+		token outputs:surface.connect = </Materials/Material_8/PreviewSurface.outputs:surface>
+
+
+		def Shader "PrimvarReader_diffuse"
+		{
+			uniform token info:id = "UsdPrimvarReader_float2"
+			float2 inputs:fallback = (0.0, 0.0)
+			token inputs:varname = "st"
+			float2 outputs:result
+		}
+
+		def Shader "Transform2d_diffuse"
+		{
+			uniform token info:id = "UsdTransform2d"
+			token inputs:in.connect = </Materials/Material_8/PrimvarReader_diffuse.outputs:result>
+			float inputs:rotation = 0.0000000
+			float2 inputs:scale = (1, 1)
+			float2 inputs:translation = (0, 0)
+			float2 outputs:result
+		}
+
+		def Shader "Texture_11_diffuse"
+		{
+			uniform token info:id = "UsdUVTexture"
+			asset inputs:file = @textures/Texture_11_true.png@
+			float2 inputs:st.connect = </Materials/Material_8/Transform2d_diffuse.outputs:result>
+			float4 inputs:scale = (1, 1, 1, 1.0)
+			token inputs:sourceColorSpace = "sRGB"
+			token inputs:wrapS = "clamp"
+			token inputs:wrapT = "clamp"
+			float outputs:r
+			float outputs:g
+			float outputs:b
+			float3 outputs:rgb
+			
+		}
+
+	}
+
+	def Material "Material_9"
+	{
+		def Shader "PreviewSurface"
+		{
+			uniform token info:id = "UsdPreviewSurface"
+			color3f inputs:diffuseColor.connect = </Materials/Material_9/Texture_12_diffuse.outputs:rgb>
+			float inputs:opacity.connect = </Materials/Material_9/Texture_12_diffuse.outputs:a>
+			float inputs:roughness = 0.8
+			float inputs:metallic = 0.05
+			float inputs:opacity = 0.92
+			int inputs:useSpecularWorkflow = 0
+			token outputs:surface
+		}
+
+		token outputs:surface.connect = </Materials/Material_9/PreviewSurface.outputs:surface>
+
+
+		def Shader "PrimvarReader_diffuse"
+		{
+			uniform token info:id = "UsdPrimvarReader_float2"
+			float2 inputs:fallback = (0.0, 0.0)
+			token inputs:varname = "st"
+			float2 outputs:result
+		}
+
+		def Shader "Transform2d_diffuse"
+		{
+			uniform token info:id = "UsdTransform2d"
+			token inputs:in.connect = </Materials/Material_9/PrimvarReader_diffuse.outputs:result>
+			float inputs:rotation = 0.0000000
+			float2 inputs:scale = (1, 1)
+			float2 inputs:translation = (0, 0)
+			float2 outputs:result
+		}
+
+		def Shader "Texture_12_diffuse"
+		{
+			uniform token info:id = "UsdUVTexture"
+			asset inputs:file = @textures/Texture_12_true.png@
+			float2 inputs:st.connect = </Materials/Material_9/Transform2d_diffuse.outputs:result>
+			float4 inputs:scale = (1, 1, 1, 1.0)
+			token inputs:sourceColorSpace = "sRGB"
+			token inputs:wrapS = "clamp"
+			token inputs:wrapT = "clamp"
+			float outputs:r
+			float outputs:g
+			float outputs:b
+			float3 outputs:rgb
+			float outputs:a
+		}
+
+	}
+
+	def Material "Material_10"
+	{
+		def Shader "PreviewSurface"
+		{
+			uniform token info:id = "UsdPreviewSurface"
+			color3f inputs:diffuseColor.connect = </Materials/Material_10/Texture_12_diffuse.outputs:rgb>
+			float inputs:opacity.connect = </Materials/Material_10/Texture_12_diffuse.outputs:a>
+			float inputs:roughness = 0.8
+			float inputs:metallic = 0.05
+			float inputs:opacity = 0.92
+			int inputs:useSpecularWorkflow = 0
+			token outputs:surface
+		}
+
+		token outputs:surface.connect = </Materials/Material_10/PreviewSurface.outputs:surface>
+
+
+		def Shader "PrimvarReader_diffuse"
+		{
+			uniform token info:id = "UsdPrimvarReader_float2"
+			float2 inputs:fallback = (0.0, 0.0)
+			token inputs:varname = "st"
+			float2 outputs:result
+		}
+
+		def Shader "Transform2d_diffuse"
+		{
+			uniform token info:id = "UsdTransform2d"
+			token inputs:in.connect = </Materials/Material_10/PrimvarReader_diffuse.outputs:result>
+			float inputs:rotation = 0.0000000
+			float2 inputs:scale = (1, 1)
+			float2 inputs:translation = (0, 0)
+			float2 outputs:result
+		}
+
+		def Shader "Texture_12_diffuse"
+		{
+			uniform token info:id = "UsdUVTexture"
+			asset inputs:file = @textures/Texture_12_true.png@
+			float2 inputs:st.connect = </Materials/Material_10/Transform2d_diffuse.outputs:result>
+			float4 inputs:scale = (1, 1, 1, 1.0)
+			token inputs:sourceColorSpace = "sRGB"
+			token inputs:wrapS = "clamp"
+			token inputs:wrapT = "clamp"
+			float outputs:r
+			float outputs:g
+			float outputs:b
+			float3 outputs:rgb
+			float outputs:a
+		}
+
+	}
+
+	def Material "Material_11"
+	{
+		def Shader "PreviewSurface"
+		{
+			uniform token info:id = "UsdPreviewSurface"
+			color3f inputs:diffuseColor.connect = </Materials/Material_11/Texture_13_diffuse.outputs:rgb>
+			float inputs:roughness = 0.55
+			float inputs:metallic = 0.05
+			float inputs:opacity = 1
+			int inputs:useSpecularWorkflow = 0
+			token outputs:surface
+		}
+
+		token outputs:surface.connect = </Materials/Material_11/PreviewSurface.outputs:surface>
+
+
+		def Shader "PrimvarReader_diffuse"
+		{
+			uniform token info:id = "UsdPrimvarReader_float2"
+			float2 inputs:fallback = (0.0, 0.0)
+			token inputs:varname = "st"
+			float2 outputs:result
+		}
+
+		def Shader "Transform2d_diffuse"
+		{
+			uniform token info:id = "UsdTransform2d"
+			token inputs:in.connect = </Materials/Material_11/PrimvarReader_diffuse.outputs:result>
+			float inputs:rotation = 0.0000000
+			float2 inputs:scale = (1, 1)
+			float2 inputs:translation = (0, 0)
+			float2 outputs:result
+		}
+
+		def Shader "Texture_13_diffuse"
+		{
+			uniform token info:id = "UsdUVTexture"
+			asset inputs:file = @textures/Texture_13_true.png@
+			float2 inputs:st.connect = </Materials/Material_11/Transform2d_diffuse.outputs:result>
+			float4 inputs:scale = (1, 1, 1, 1.0)
+			token inputs:sourceColorSpace = "sRGB"
+			token inputs:wrapS = "clamp"
+			token inputs:wrapT = "clamp"
+			float outputs:r
+			float outputs:g
+			float outputs:b
+			float3 outputs:rgb
+			
+		}
+
+	}
+
+	def Material "Material_12"
+	{
+		def Shader "PreviewSurface"
+		{
+			uniform token info:id = "UsdPreviewSurface"
+			color3f inputs:diffuseColor.connect = </Materials/Material_12/Texture_14_diffuse.outputs:rgb>
+			float inputs:roughness = 0.55
+			float inputs:metallic = 0.05
+			float inputs:opacity = 1
+			int inputs:useSpecularWorkflow = 0
+			token outputs:surface
+		}
+
+		token outputs:surface.connect = </Materials/Material_12/PreviewSurface.outputs:surface>
+
+
+		def Shader "PrimvarReader_diffuse"
+		{
+			uniform token info:id = "UsdPrimvarReader_float2"
+			float2 inputs:fallback = (0.0, 0.0)
+			token inputs:varname = "st"
+			float2 outputs:result
+		}
+
+		def Shader "Transform2d_diffuse"
+		{
+			uniform token info:id = "UsdTransform2d"
+			token inputs:in.connect = </Materials/Material_12/PrimvarReader_diffuse.outputs:result>
+			float inputs:rotation = 0.0000000
+			float2 inputs:scale = (1, 1)
+			float2 inputs:translation = (0, 0)
+			float2 outputs:result
+		}
+
+		def Shader "Texture_14_diffuse"
+		{
+			uniform token info:id = "UsdUVTexture"
+			asset inputs:file = @textures/Texture_14_true.png@
+			float2 inputs:st.connect = </Materials/Material_12/Transform2d_diffuse.outputs:result>
+			float4 inputs:scale = (1, 1, 1, 1.0)
+			token inputs:sourceColorSpace = "sRGB"
+			token inputs:wrapS = "clamp"
+			token inputs:wrapT = "clamp"
+			float outputs:r
+			float outputs:g
+			float outputs:b
+			float3 outputs:rgb
+			
+		}
+
+	}
 
 }
+
