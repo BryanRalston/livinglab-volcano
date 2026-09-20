@@ -102,21 +102,21 @@
 <body>
   <header>
     <p class="back" style="margin:0 0 8px"><a href="../" style="color:#8ab4ff;text-decoration:none">Living Lab experiments</a></p>
-    <h1>Kitchen Volcano</h1>
+    <h1>Craft Volcano</h1>
     <p>Place it on the table. Watch the foam. Then say why.</p>
   </header>
 
   <p class="hint" id="arHint">
     Tap <strong>Place on table (AR)</strong> — stays in this page when WebXR is available.
-    Place the ready bowl + cups, then Erupt: soda pour → vinegar → foam (loops). No 3D mesh.
+    Place the craft volcano + cups, then Erupt: soda pour → vinegar → foam (loops). No 3D mesh.
   </p>
 
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=cups4"
-      alt="Bowl-scale baking soda volcano"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=classic1"
+      alt="Craft paper-mâché baking soda volcano"
       camera-controls
       touch-action="pan-y"
       shadow-intensity="1"
@@ -127,7 +127,7 @@
       reveal="auto"
     ></model-viewer>
     <div class="overlay">
-      <video id="clip" playsinline muted loop poster="../assets/keyed/eruption_frame0.png?v=cups4"></video>
+      <video id="clip" playsinline muted loop poster="../assets/keyed/eruption_frame0.png?v=classic1"></video>
       <img id="clipWebp" alt="Volcano erupting foam">
     </div>
   </div>
@@ -140,7 +140,7 @@
 
   <section class="why" id="why">
     <h2>Why did it foam?</h2>
-    <p>Vinegar is an acid and baking soda is a base. When they mix they make carbon dioxide gas — tiny CO<sub>2</sub> bubbles that swell into the foam that overflows the bowl.</p>
+    <p>Vinegar is an acid and baking soda is a base. When they mix they make carbon dioxide gas — tiny CO<sub>2</sub> bubbles that swell into the foam that erupts over the crater rim.</p>
   </section>
 
   <section class="quiz" id="quiz">
@@ -149,7 +149,7 @@
     <form id="quizForm">
       <label><input type="radio" name="q" value="hot"> The volcano got hot like a real mountain.</label>
       <label><input type="radio" name="q" value="co2"> Baking soda + vinegar made carbon dioxide gas.</label>
-      <label><input type="radio" name="q" value="melt"> The cereal bowl melted into foam.</label>
+      <label><input type="radio" name="q" value="melt"> The craft volcano melted into foam.</label>
       <button class="check" type="submit">Check my answer</button>
     </form>
     <div class="feedback" id="feedback"></div>
@@ -157,7 +157,7 @@
 
   <section class="mat">
     <strong>Printed lab mat</strong> (optional — table is fine)
-    <p><a href="../assets/lab-mat.png" download>Download / print lab-mat.png</a> · set the volcano on the circle.</p>
+    <p><a href="../assets/lab-mat.png" download>Download / print lab-mat.png</a> · set the craft volcano on the circle.</p>
     <img src="assets/lab-mat.png" alt="Printable lab mat">
   </section>
 
@@ -191,11 +191,11 @@
     const arEruptBtn = document.getElementById("arEruptBtn");
     const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=cups4";
-    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=cups4";
-    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=cups4";
-    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=cups4";
-    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=cups4";
+    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=classic1";
+    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=classic1";
+    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=classic1";
+    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=classic1";
+    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=classic1";
 
     let mode = "video";
     let lessonTimer = 0;
@@ -294,7 +294,11 @@
       const foamH = 0.32;
       const geo = new THREE.PlaneGeometry(foamW, foamH);
       arVideoMesh = new THREE.Mesh(geo, mat);
-      arVideoMesh.position.set(0, foamH / 2 + 0.004, 0);
+      // classic1 plate was shot ~25–35° look-down — tip so cone base sits flush on the table
+      const LOOK_DOWN = (30 * Math.PI) / 180;
+      geo.translate(0, foamH / 2, 0); // pivot at bottom edge
+      arVideoMesh.rotation.x = -Math.PI / 2 + LOOK_DOWN;
+      arVideoMesh.position.set(0, 0.004, 0);
       arVideoMesh.renderOrder = 10;
       arVideoMesh.visible = false;
 
@@ -409,7 +413,7 @@
         reticle.visible = false;
         arPlaceBtn.hidden = true;
         arEruptBtn.hidden = false;
-        setMsg("Placed — ready bowl + cups on the table. Tap Erupt foam for soda pour → vinegar → foam.");
+        setMsg("Placed — craft volcano + cups on the table. Tap Erupt foam for soda pour → vinegar → foam.");
       };
 
             arEruptBtn.onclick = async () => {

@@ -1,0 +1,26 @@
+classic1 alpha proof 2026-09-20
+Primary: eruption.webm = libvpx-vp9 encode yuva420p + ALPHA_MODE=1
+ffprobe often reports pix_fmt=yuv420p (probe quirk) — do NOT reject on that alone.
+PROOF: ffmpeg -c:v libvpx-vp9 -i eruption.webm -frames:v 1 -pix_fmt rgba prove.png
+  → corner alpha=[0, 0, 0, 0] (want 0)
+  → transparent t0=77.888% mid=68.242% end=68.097% (t0 ≥75%; mid/end lower = foam fill OK)
+  → opaque FG t0≈22.1% mid≈31.7% end≈31.9%
+Default decode WITHOUT -c:v libvpx-vp9 STRIPS alpha (false opaque/black).
+
+Base dark-opaque gate (RGB max≤8 AND A=255 in bottom 20%): t0=0.0000% mid=0.0000% end=0.0000% (target ≈0; FAIL if >0.5%).
+
+Backup: eruption_dual.webm = dual VP9 streams (RGB + gray alphaextract). Stream1 corners=[0, 0, 0, 0], ~77.9% transparent @t0.
+Wire MeshBasic+VideoTexture+alphaTest 0.25 (foam3/cups4 stack). If Samsung strips single-stream alpha, try dual RGB+alpha textures.
+
+Framing / look (Living Lab AR plate tilt):
+  camera ~20–35° down (phone-on-table); GI ~25–35° — plate intended for AR tilt match.
+  craft paper-mâché cone volcano CONFIRMED (rough brown + red lava streaks; NOT kitchen mixing bowl).
+  cups-at-t0 CONFIRMED — both opaque white ceramic mugs fully in frame L/R on frame0 / c1_t0 (soda powder L, vinegar R); no pop-in.
+  beat: soda pour → vinegar pour → foam UP over crater rim; park + freeze ≈5.04s (121f @24fps); total duration 20.04s (481f).
+  no hands/people in plate.
+  GI soft contact shadows under bases treated as green/BG (forced alpha=0); no opaque-black RGB≈0 A=255 islands.
+
+KEY≈[5,150,42] hard alpha; gentle despill; RGB=0 where alpha<8.
+Source: classic1_imagine/cutroom_gs_classic1_freeze.mp4 1104×816 20.04s (freezeDiff≈5.00s).
+
+Sizes: eruption.webm=2524436 eruption_dual.webm=2256085 eruption_frame0.png=243856
