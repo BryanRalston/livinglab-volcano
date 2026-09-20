@@ -1,0 +1,79 @@
+#usda 1.0
+(
+    defaultPrim = "SolarSystem"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "SolarSystem" (
+    prepend apiSchemas = ["Preliminary_AnchoringAPI"]
+)
+{
+    token preliminary:anchoring:type = "plane"
+    uniform token preliminary:anchoring:planeAnchoring:alignment = "horizontal"
+
+    def Sphere "Sun" {
+        double radius = 0.045
+        double3 xformOp:translate = (0, 0.045, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        color3f[] primvars:displayColor = [(1.0, 0.72, 0.15)]
+        color3f[] primvars:displayColor = [(1.0, 0.72, 0.15)]
+    }
+
+    def Sphere "Mercury" {
+        double radius = 0.008
+        double3 xformOp:translate = (0.1, 0.045, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        color3f[] primvars:displayColor = [(0.69, 0.69, 0.69)]
+    }
+
+    def Sphere "Venus" {
+        double radius = 0.011
+        double3 xformOp:translate = (0.14, 0.045, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        color3f[] primvars:displayColor = [(0.88, 0.75, 0.5)]
+    }
+
+    def Sphere "Earth" {
+        double radius = 0.012
+        double3 xformOp:translate = (0.18, 0.045, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        color3f[] primvars:displayColor = [(0.31, 0.56, 0.87)]
+    }
+
+    def Sphere "Mars" {
+        double radius = 0.01
+        double3 xformOp:translate = (0.23, 0.045, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        color3f[] primvars:displayColor = [(0.82, 0.4, 0.23)]
+    }
+
+    def Sphere "Jupiter" {
+        double radius = 0.028
+        double3 xformOp:translate = (0.32, 0.045, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        color3f[] primvars:displayColor = [(0.82, 0.67, 0.47)]
+    }
+
+    def Sphere "Saturn" {
+        double radius = 0.024
+        double3 xformOp:translate = (0.41, 0.045, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        color3f[] primvars:displayColor = [(0.86, 0.78, 0.55)]
+    }
+
+    def Sphere "Uranus" {
+        double radius = 0.017
+        double3 xformOp:translate = (0.5, 0.045, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        color3f[] primvars:displayColor = [(0.59, 0.82, 0.86)]
+    }
+
+    def Sphere "Neptune" {
+        double radius = 0.016
+        double3 xformOp:translate = (0.58, 0.045, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        color3f[] primvars:displayColor = [(0.27, 0.43, 0.82)]
+    }
+
+}
