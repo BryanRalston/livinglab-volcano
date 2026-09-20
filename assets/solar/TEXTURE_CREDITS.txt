@@ -4,3 +4,5 @@ Public educational planet maps used in Living Lab Solar (photo1):
 - Mercury–Neptune / Sun lineage: threex.planets / public planet map collections
 - Saturn ring: generated alpha band texture for WebGL RingGeometry
 Not for commercial resale of the maps alone. Educational AR demo OK.
+
+Sun map sun1: Solar System Scope 2k_sun (educational). Live: emissive+corona, no bloom.

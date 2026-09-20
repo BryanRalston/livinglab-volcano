@@ -49,7 +49,7 @@
   <header>
     <p class="back"><a href="../">Living Lab experiments</a></p>
     <h1>Solar System</h1>
-    <p class="sub">Photoreal maps on all eight planets — Saturn rings, Earth atmosphere, sun-lit. Floats in space (no table). Pinch to scale in AR.</p>
+    <p class="sub">Photoreal maps on all eight planets — glowing sun with corona, Saturn rings, Earth atmosphere. Floats in space (no table). Pinch to scale in AR.</p>
     <p class="note">Orbit timing uses realistic relative periods (integer ratios for a seamless loop). Distances are compressed for your room. One full-cycle video = 1 Neptune year (~164.8 Earth years).</p>
   </header>
 
@@ -70,11 +70,11 @@
     <h2 style="font-size:1.05rem;margin:8px 0 4px">Watch full cycle</h2>
     <p class="hint">Seamless loop from the same orbit integers as the live sim (textured Lambert pass). Not Imagine.</p>
     <video class="cycle" controls loop muted playsinline
-      src="../assets/solar/full_cycle.mp4?v=photo2">
-      <source src="../assets/solar/full_cycle.webm?v=photo2" type="video/webm" />
-      <source src="../assets/solar/full_cycle.mp4?v=photo2" type="video/mp4" />
+      src="../assets/solar/full_cycle.mp4?v=sun1">
+      <source src="../assets/solar/full_cycle.webm?v=sun1" type="video/webm" />
+      <source src="../assets/solar/full_cycle.mp4?v=sun1" type="video/mp4" />
     </video>
-    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=photo2" download style="color:#8ab4ff">Download MP4</a></p>
+    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=sun1" download style="color:#8ab4ff">Download MP4</a></p>
   </div>
 
   <section class="lesson" id="lesson">
@@ -104,7 +104,7 @@
     import * as THREE from "three";
 
     const TEX = "../assets/solar/textures/";
-    const V = "?v=photo2";
+    const V = "?v=sun1";
     const AR_DEFAULT_SCALE = 2.6;
     const PREVIEW_SCALE = 1;
 
@@ -180,16 +180,44 @@
 
     async function build() {
       const sunMap = await loadMap("sun.jpg");
-      const sun = new THREE.Mesh(
-        new THREE.SphereGeometry(0.08, 48, 48),
-        new THREE.MeshBasicMaterial({ map: sunMap })
-      );
+      // Emissive photosphere (no bloom — keeps mobile AR smooth)
+      const sunMat = new THREE.MeshStandardMaterial({
+        map: sunMap,
+        emissiveMap: sunMap,
+        emissive: new THREE.Color(0xffcc66),
+        emissiveIntensity: 2.4,
+        roughness: 1,
+        metalness: 0,
+        toneMapped: false,
+      });
+      const sun = new THREE.Mesh(new THREE.SphereGeometry(0.085, 64, 64), sunMat);
       root.add(sun);
-      const sunGlow = new THREE.Mesh(
-        new THREE.SphereGeometry(0.11, 32, 32),
-        new THREE.MeshBasicMaterial({ color: 0xffaa44, transparent: true, opacity: 0.28, depthWrite: false })
-      );
-      root.add(sunGlow);
+      // Soft corona / haze shells (additive)
+      const coronaMats = [];
+      const coronaLayers = [
+        { scale: 1.18, color: 0xffe8a0, opacity: 0.45 },
+        { scale: 1.45, color: 0xffb040, opacity: 0.22 },
+        { scale: 1.9,  color: 0xff8020, opacity: 0.10 },
+      ];
+      for (const layer of coronaLayers) {
+        const mat = new THREE.MeshBasicMaterial({
+          color: layer.color,
+          transparent: true,
+          opacity: layer.opacity,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          side: THREE.BackSide,
+          toneMapped: false,
+        });
+        coronaMats.push(mat);
+        const shell = new THREE.Mesh(
+          new THREE.SphereGeometry(0.085 * layer.scale, 32, 32),
+          mat
+        );
+        root.add(shell);
+      }
+      // Keep refs for UV scroll + light follow
+      window.__solarSun = { sun, sunMat, coronaMats };
 
       for (const p of PLANETS) {
         const orbit = new THREE.Group();
@@ -298,6 +326,13 @@
       for (const b of bodies) {
         b.orbit.rotation.y = 2 * Math.PI * b.orbits * u;
         b.mesh.rotation.y = 2 * Math.PI * b.spins * u;
+      }
+      // Subtle sun surface motion (UV scroll) — not a static sticker
+      if (window.__solarSun && window.__solarSun.sunMat.map) {
+        const s = window.__solarSun.sunMat;
+        s.map.offset.x = (s.map.offset.x + dt * 0.012) % 1;
+        if (s.emissiveMap) s.emissiveMap.offset.x = s.map.offset.x;
+        window.__solarSun.sun.rotation.y += dt * 0.08;
       }
       if (!renderer.xr.isPresenting) root.rotation.y += dt * 0.035;
       applyScale();
