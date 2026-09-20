@@ -1,0 +1,51 @@
+classic3_steps alpha proof 2026-09-20 ~6:42pm ET (vinegar_erupt v2 regen)
+Workdir: /workspace/livinglab-volcano/qc_classic3/
+Source: ship/classic3_steps_imagine/ (place+soda unchanged; vinegar_erupt_gs_freeze.mp4 v2)
+Staged: ship/classic3/  → Ship Yes
+
+## HARD gates — all PASS
+A) Scale FG opaque place/soda-open ~18–25% classic1-like: PASS
+   place_frame0 opaque=22.087%  soda t0=22.362%  soda mid≈18.1%  soda end≈22.4%
+   vin t0=22.656% (not postage-stamp)
+
+B) Cup-count = 2 every sampled frame (esp. peak pour); never 3: PASS
+   Visual comps peak pour vin f65/f67/f73: exactly 2 cups (L parked + R pouring).
+   Samples vin f1/20/36/41/65/67/73 + soda f1/20/46/49: 2 cups. Foam frames inflate white-CC; visual = 2 parked L/R + foam — no 3-cup clone.
+
+C) Peak pour headroom ≥80px above pouring cup rim (soda L + vinegar R): PASS
+   Measured Cut Room on keyed RGBA top_wide20 (≥20px FG run) + matching green-screen source:
+   soda L peak @f_00049: headroom = 99px (f48=100, f50=102) → PASS
+   vinegar R peak @f_00065..f_00073: headroom = 152px (pour_peak.png ≡ f_00067 = 152px contig) → PASS
+   (prior v1 FAIL was 71px @f41; GI v2 regen clears ≥80 with room to spare)
+   Proof crops: qc_classic3/preview/vin_hr_peak_f00065.png, vin_hr_peak_f00067.png, soda_hr_peak_f00049.png
+
+D) Continuity soda end vs vinegar start: SOFT PASS
+   MAD_rgb_all=2.14  MAD_FG_union=9.33  alphaMAD=2.34
+   Both rest place-like (empty crater, cups full L/R).
+
+E) Base dark-opaque (RGB max≤8 ∧ A=255, bottom 20%) ≈0%: PASS
+   place=0.0000%  soda t0/end=0.0000% mid=0.0006%
+   vin t0/end=0.0000% mid≈0.0011% (≪0.5%)
+
+F) True YUVA libvpx-vp9 decode corner A=0: PASS (alpha pipeline OK)
+   PROOF: ffmpeg -c:v libvpx-vp9 -i FILE -frames:v 1 -pix_fmt rgba prove.png
+   soda.webm t0/mid/end corners=[0,0,0,0]; alpha_mode=1
+   vinegar_erupt.webm t0 corners=[0,0,0,0]; t4 (pour)=[0,0,0,0]; t10 (post-foam)=[0,0,0,0]; end=[0,0,0,0]
+   Chronological mid (~t7.27 / foam peak): bottom corners A=255 — foam/cup reaches frame edge (legitimate FG, not stripped-alpha). Same on dual stream1 mid.
+   place_frame0.png corners=[0,0,0,0]
+   dual stream1 (alphaextract) t0 corners=[0,0,0,0]
+   Default decode WITHOUT -c:v libvpx-vp9 STRIPS alpha (false opaque/black).
+
+## Key recipe
+KEY≈[5,140,40] hard alpha (alphaTest 0.25); despill no mint; soft floor/contact shadows forced A=0.
+foam3/cups4 recipe (qc_classic3/key_classic3.py). Place+soda reused from prior PASS key; vinegar re-keyed from v2 freeze (349f @24fps).
+residual opaque green%≈0; mean subject gn negative (no mint cast).
+
+## Staged artifacts
+place_frame0.png
+soda.webm (yuva libvpx-vp9)
+soda_dual.webm
+soda_end.png
+vinegar_erupt.webm (yuva libvpx-vp9) 349f ~14.54s
+vinegar_erupt_dual.webm
+ALPHA_PROOF.txt

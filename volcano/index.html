@@ -4,8 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Kitchen Volcano â€” Living Lab</title>
-  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+  <title>Kitchen Volcano — Living Lab</title>
   <script type="importmap">
   {
     "imports": {
@@ -42,23 +41,23 @@
       background: repeating-linear-gradient(90deg, #b8894e 0 18px, #a6783e 18px 36px);
       box-shadow: 0 -8px 24px rgba(0,0,0,.18);
     }
-    model-viewer {
-      position: absolute; inset: 0; width: 100%; height: 100%;
-      --poster-color: transparent; background: transparent;
-    }
     .overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
-    #clip, #clipWebp {
+    #plateStill, #clip {
       width: min(92%, 420px); height: auto; max-height: 92%;
-      filter: drop-shadow(0 10px 18px rgba(0,0,0,.28)); display: none;
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,.28));
     }
-    #clip.use-video, #clipWebp.use-img { display: block; }
-    .playing model-viewer { opacity: 0; }
+    #plateStill { display: block; }
+    #plateStill.hide { display: none; }
+    #clip { display: none; }
+    #clip.use-video { display: block; }
     .btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
     button {
       flex: 1; min-height: 48px; border: 0; border-radius: 12px;
       font-size: 1.02rem; font-weight: 650; cursor: pointer; min-width: 42%;
     }
-    .erupt { background: var(--acid); color: #fff; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    .soda { background: #4a7c59; color: #fff; }
+    .vinegar { background: var(--acid); color: #fff; }
     .replay { background: var(--ink); color: #fff; }
     .ar-cta { background: var(--ar); color: #fff; font-weight: 700; flex-basis: 100%; }
     .ar-cta:disabled { opacity: .55; }
@@ -95,7 +94,8 @@
     #arHud .row { display: flex; gap: 8px; }
     #arHud button { flex: 1; min-height: 48px; border: 0; border-radius: 12px; font-weight: 700; }
     #arHud .place { background: #0b5fff; color: #fff; }
-    #arHud .done { background: #2f6f3e; color: #fff; }
+    #arHud .soda { background: #4a7c59; color: #fff; }
+    #arHud .vinegar { background: #c45c26; color: #fff; }
     #arHud .exit { background: #fff; color: #111; }
   </style>
 </head>
@@ -103,44 +103,32 @@
   <header>
     <p class="back" style="margin:0 0 8px"><a href="../" style="color:#8ab4ff;text-decoration:none">Living Lab experiments</a></p>
     <h1>Craft Volcano</h1>
-    <p>Place it on the table. Watch the foam. Then say why.</p>
+    <p>Place it on the table. Pour baking soda, then vinegar. Then say why.</p>
   </header>
 
   <p class="hint" id="arHint">
-    Tap <strong>Place on table (AR)</strong> â€” stays in this page when WebXR is available.
-    Place the craft volcano + cups, then Erupt: soda pour â†’ vinegar â†’ foam (loops). No 3D mesh.
+    Tap <strong>Place on table (AR)</strong> — stays in this page when WebXR is available.
+    Place the craft volcano + cups, pour baking soda, then pour vinegar (foam). No 3D mesh.
   </p>
 
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
-    <model-viewer
-      id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=classic1"
-      alt="Craft paper-mÃ¢chÃ© baking soda volcano"
-      camera-controls
-      touch-action="pan-y"
-      shadow-intensity="1"
-      exposure="1.05"
-      camera-orbit="30deg 65deg 0.85m"
-      field-of-view="28deg"
-      orientation="0deg 0deg 0deg"
-      reveal="auto"
-    ></model-viewer>
     <div class="overlay">
-      <video id="clip" playsinline muted loop poster="../assets/keyed/eruption_frame0.png?v=classic1"></video>
-      <img id="clipWebp" alt="Volcano erupting foam">
+      <img id="plateStill" alt="Craft volcano and cups on the table" src="../assets/keyed/classic3/place_frame0.png?v=classic3">
+      <video id="clip" playsinline muted poster="../assets/keyed/classic3/place_frame0.png?v=classic3"></video>
     </div>
   </div>
 
   <div class="btns">
     <button class="ar-cta" id="arBtn" type="button">Place on table (AR)</button>
-    <button class="erupt" id="eruptBtn" type="button">Erupt (on page)</button>
+    <button class="soda" id="sodaBtn" type="button">Pour baking soda</button>
+    <button class="vinegar" id="vinegarBtn" type="button">Pour vinegar</button>
     <button class="replay" id="replayBtn" type="button">Replay</button>
   </div>
 
   <section class="why" id="why">
     <h2>Why did it foam?</h2>
-    <p>Vinegar is an acid and baking soda is a base. When they mix they make carbon dioxide gas â€” tiny CO<sub>2</sub> bubbles that swell into the foam that erupts over the crater rim.</p>
+    <p>Vinegar is an acid and baking soda is a base. When they mix they make carbon dioxide gas — tiny CO<sub>2</sub> bubbles that swell into the foam that erupts over the crater rim.</p>
   </section>
 
   <section class="quiz" id="quiz">
@@ -156,17 +144,18 @@
   </section>
 
   <section class="mat">
-    <strong>Printed lab mat</strong> (optional â€” table is fine)
-    <p><a href="../assets/lab-mat.png" download>Download / print lab-mat.png</a> Â· set the craft volcano on the circle.</p>
-    <img src="assets/lab-mat.png" alt="Printable lab mat">
+    <strong>Printed lab mat</strong> (optional — table is fine)
+    <p><a href="../assets/lab-mat.png" download>Download / print lab-mat.png</a> · set the craft volcano on the circle.</p>
+    <img src="../assets/lab-mat.png" alt="Printable lab mat">
   </section>
 
   <canvas id="arCanvas"></canvas>
   <div id="arHud">
     <div class="msg" id="arMsg">Move phone to find your table, then tap Place.</div>
     <div class="row">
-      <button class="place" id="arPlaceBtn" type="button">Place video</button>
-      <button class="done" id="arEruptBtn" type="button" hidden>Erupt foam</button>
+      <button class="place" id="arPlaceBtn" type="button">Place</button>
+      <button class="soda" id="arSodaBtn" type="button" hidden>Pour baking soda</button>
+      <button class="vinegar" id="arVinegarBtn" type="button" hidden>Pour vinegar</button>
     </div>
     <div class="row">
       <button class="exit" id="arExitBtn" type="button">Exit AR</button>
@@ -175,29 +164,48 @@
 
   <script type="module">
     import * as THREE from "three";
-    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-    const stage = document.getElementById("stage");
+    const plateStill = document.getElementById("plateStill");
     const video = document.getElementById("clip");
-    const webpImg = document.getElementById("clipWebp");
     const why = document.getElementById("why");
     const quiz = document.getElementById("quiz");
     const feedback = document.getElementById("feedback");
+    const sodaBtn = document.getElementById("sodaBtn");
+    const vinegarBtn = document.getElementById("vinegarBtn");
+    const replayBtn = document.getElementById("replayBtn");
     const arBtn = document.getElementById("arBtn");
     const arCanvas = document.getElementById("arCanvas");
     const arHud = document.getElementById("arHud");
     const arMsg = document.getElementById("arMsg");
     const arPlaceBtn = document.getElementById("arPlaceBtn");
-    const arEruptBtn = document.getElementById("arEruptBtn");
+    const arSodaBtn = document.getElementById("arSodaBtn");
+    const arVinegarBtn = document.getElementById("arVinegarBtn");
     const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=classic1";
-    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=classic1";
-    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=classic1";
-    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=classic1";
-    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=classic1";
+    const V = "classic3";
+    const PLACE_STILL = `../assets/keyed/classic3/place_frame0.png?v=${V}`;
+    const SODA_WEBM = `../assets/keyed/classic3/soda.webm?v=${V}`;
+    const SODA_END = `../assets/keyed/classic3/soda_end.png?v=${V}`;
+    const VINEGAR_WEBM = `../assets/keyed/classic3/vinegar_erupt.webm?v=${V}`;
 
-    let mode = "video";
+    const PAGE = Object.freeze({
+      PLACE: "place",
+      SODA: "soda",
+      SODA_DONE: "soda_done",
+      VINEGAR: "vinegar",
+      DONE: "done",
+    });
+    const AR = Object.freeze({
+      UNPLACED: "unplaced",
+      PLACE: "place",
+      SODA: "soda",
+      SODA_DONE: "soda_done",
+      VINEGAR: "vinegar",
+      DONE: "done",
+    });
+
+    let pageStep = PAGE.PLACE;
+    let arStep = AR.UNPLACED;
     let lessonTimer = 0;
 
     function revealLesson() {
@@ -206,27 +214,135 @@
       why.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
+    function scheduleLesson(ms) {
+      if (lessonTimer) clearTimeout(lessonTimer);
+      lessonTimer = setTimeout(revealLesson, ms);
+    }
+
     function canPlayWebm() {
       const t = video.canPlayType('video/webm; codecs="vp9"');
       return t === "probably" || t === "maybe";
     }
 
-    function playClip() {
+    function showStill(src) {
+      plateStill.src = src;
+      plateStill.classList.remove("hide");
+      video.classList.remove("use-video");
+      video.pause();
+    }
+
+    function freezeVideoEnd(el) {
+      try {
+        if (Number.isFinite(el.duration) && el.duration > 0) {
+          el.currentTime = Math.max(0, el.duration - 0.04);
+        }
+      } catch (_) {}
+      el.pause();
+    }
+
+    function playOnce(el, src, onEnded) {
+      el.loop = false;
+      el.muted = true;
+      el.playsInline = true;
+      el.setAttribute("playsinline", "");
+      el.src = src;
+      el.onended = () => {
+        freezeVideoEnd(el);
+        if (onEnded) onEnded();
+      };
+      el.load();
+      const p = el.play();
+      if (p && p.catch) {
+        p.catch(() => {
+          freezeVideoEnd(el);
+          if (onEnded) onEnded();
+        });
+      }
+    }
+
+    function syncPageButtons(step) {
+      switch (step) {
+        case PAGE.PLACE:
+          sodaBtn.disabled = false;
+          vinegarBtn.disabled = true;
+          break;
+        case PAGE.SODA:
+          sodaBtn.disabled = true;
+          vinegarBtn.disabled = true;
+          break;
+        case PAGE.SODA_DONE:
+          sodaBtn.disabled = true;
+          vinegarBtn.disabled = false;
+          break;
+        case PAGE.VINEGAR:
+          sodaBtn.disabled = true;
+          vinegarBtn.disabled = true;
+          break;
+        case PAGE.DONE:
+          sodaBtn.disabled = true;
+          vinegarBtn.disabled = true;
+          break;
+        default: {
+          const unexpected = step;
+          console.warn("unknown page step", unexpected);
+        }
+      }
+    }
+
+    function resetPagePlate() {
+      pageStep = PAGE.PLACE;
       if (lessonTimer) clearTimeout(lessonTimer);
-      stage.classList.add("playing");
-      lessonTimer = setTimeout(revealLesson, 20000);
-      if (mode === "webp") {
-        webpImg.src = "";
-        webpImg.src = WEBP;
+      showStill(PLACE_STILL);
+      syncPageButtons(pageStep);
+    }
+
+    function pourSodaOnPage() {
+      if (pageStep !== PAGE.PLACE) return;
+      pageStep = PAGE.SODA;
+      syncPageButtons(pageStep);
+      plateStill.classList.add("hide");
+      video.classList.add("use-video");
+      if (!canPlayWebm()) {
+        showStill(SODA_END);
+        pageStep = PAGE.SODA_DONE;
+        syncPageButtons(pageStep);
         return;
       }
-      video.loop = true;
-      video.currentTime = 0;
-      const p = video.play();
-      if (p && p.catch) p.catch(() => {});
+      playOnce(video, SODA_WEBM, () => {
+        showStill(SODA_END);
+        pageStep = PAGE.SODA_DONE;
+        syncPageButtons(pageStep);
+      });
     }
-    document.getElementById("eruptBtn").addEventListener("click", playClip);
-    document.getElementById("replayBtn").addEventListener("click", playClip);
+
+    function pourVinegarOnPage() {
+      if (pageStep !== PAGE.SODA_DONE) return;
+      pageStep = PAGE.VINEGAR;
+      syncPageButtons(pageStep);
+      plateStill.classList.add("hide");
+      video.classList.add("use-video");
+      const finish = () => {
+        freezeVideoEnd(video);
+        video.classList.add("use-video");
+        plateStill.classList.add("hide");
+        pageStep = PAGE.DONE;
+        syncPageButtons(pageStep);
+        revealLesson();
+      };
+      if (!canPlayWebm()) {
+        finish();
+        return;
+      }
+      // vinegar.webm ~14.54s — reveal on ended, with a safety timeout
+      scheduleLesson(16000);
+      playOnce(video, VINEGAR_WEBM, finish);
+    }
+
+    sodaBtn.addEventListener("click", pourSodaOnPage);
+    vinegarBtn.addEventListener("click", pourVinegarOnPage);
+    replayBtn.addEventListener("click", resetPagePlate);
+    syncPageButtons(pageStep);
+
     document.getElementById("quizForm").addEventListener("submit", (e) => {
       e.preventDefault();
       const picked = new FormData(e.target).get("q");
@@ -240,49 +356,106 @@
       }
     });
 
-    (function pickSource() {
-      if (canPlayWebm()) {
-        video.src = WEBM;
-        video.classList.add("use-video");
-        mode = "video";
-        return;
-      }
-      webpImg.classList.add("use-img");
-      webpImg.src = WEBP;
-      mode = "webp";
-    })();
-
-    // â€”â€”â€” WebXR AR â€”â€”â€”
+    // ——— WebXR AR (classic1 plate: MeshBasic + VideoTexture / PNG, LOOK_DOWN 30°) ———
     let renderer, scene, camera, reticle, volcanoRoot, xrHitTestSource, xrRefSpace;
-    let placed = false;
-    let arVideo, arVideoTex, arVideoMesh;
-    let gltfVolcano = null;
+    let arVideo, arVideoTex, arVideoMesh, arPlateMat;
+    let arPlaceTex = null;
+    let arSodaEndTex = null;
 
-    const loader = new GLTFLoader();
-    loader.load(MESH, (g) => { gltfVolcano = g.scene; });
+    const texLoader = new THREE.TextureLoader();
+    texLoader.setCrossOrigin("anonymous");
+    function loadStillTex(url, assign) {
+      texLoader.load(url, (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.premultiplyAlpha = true;
+        assign(tex);
+      });
+    }
+    loadStillTex(PLACE_STILL, (tex) => {
+      arPlaceTex = tex;
+      if (arStep === AR.PLACE) setPlateMap(tex);
+    });
+    loadStillTex(SODA_END, (tex) => {
+      arSodaEndTex = tex;
+      if (arStep === AR.SODA_DONE) setPlateMap(tex);
+    });
 
     function setMsg(t) { arMsg.textContent = t; }
 
-    let arStillTex = null;
+    function setPlateMap(tex) {
+      if (!arPlateMat || !tex) return;
+      arPlateMat.map = tex;
+      arPlateMat.transparent = true;
+      arPlateMat.alphaTest = 0.25;
+      arPlateMat.needsUpdate = true;
+    }
+
+    function syncArButtons(step) {
+      switch (step) {
+        case AR.UNPLACED:
+          arPlaceBtn.hidden = false;
+          arSodaBtn.hidden = true;
+          arVinegarBtn.hidden = true;
+          arSodaBtn.disabled = true;
+          arVinegarBtn.disabled = true;
+          break;
+        case AR.PLACE:
+          arPlaceBtn.hidden = true;
+          arSodaBtn.hidden = false;
+          arVinegarBtn.hidden = false;
+          arSodaBtn.disabled = false;
+          arVinegarBtn.disabled = true;
+          break;
+        case AR.SODA:
+          arPlaceBtn.hidden = true;
+          arSodaBtn.hidden = false;
+          arVinegarBtn.hidden = false;
+          arSodaBtn.disabled = true;
+          arVinegarBtn.disabled = true;
+          break;
+        case AR.SODA_DONE:
+          arPlaceBtn.hidden = true;
+          arSodaBtn.hidden = false;
+          arVinegarBtn.hidden = false;
+          arSodaBtn.disabled = true;
+          arVinegarBtn.disabled = false;
+          break;
+        case AR.VINEGAR:
+          arPlaceBtn.hidden = true;
+          arSodaBtn.hidden = false;
+          arVinegarBtn.hidden = false;
+          arSodaBtn.disabled = true;
+          arVinegarBtn.disabled = true;
+          break;
+        case AR.DONE:
+          arPlaceBtn.hidden = true;
+          arSodaBtn.hidden = false;
+          arVinegarBtn.hidden = false;
+          arSodaBtn.disabled = true;
+          arVinegarBtn.disabled = true;
+          break;
+        default: {
+          const unexpected = step;
+          console.warn("unknown AR step", unexpected);
+        }
+      }
+    }
 
     function makeVideoLayer() {
       arVideo = document.createElement("video");
       arVideo.playsInline = true;
       arVideo.muted = true;
-      arVideo.loop = true;
+      arVideo.loop = false;
       arVideo.crossOrigin = "anonymous";
       arVideo.setAttribute("playsinline", "");
       arVideo.preload = "auto";
-      arVideo.src = WEBM; // pre-keyed foam clip
-      arVideo.load();
 
       arVideoTex = new THREE.VideoTexture(arVideo);
       arVideoTex.colorSpace = THREE.SRGBColorSpace;
       arVideoTex.minFilter = THREE.LinearFilter;
       arVideoTex.magFilter = THREE.LinearFilter;
 
-      // Place still uses real alpha PNG + alphaTest (Bryan Much-better path)
-      const mat = new THREE.MeshBasicMaterial({
+      arPlateMat = new THREE.MeshBasicMaterial({
         transparent: true,
         alphaTest: 0.25,
         side: THREE.DoubleSide,
@@ -290,11 +463,13 @@
         depthWrite: false,
         opacity: 1,
       });
+      if (arPlaceTex) setPlateMap(arPlaceTex);
+
       const foamW = 0.28;
       const foamH = 0.32;
       const geo = new THREE.PlaneGeometry(foamW, foamH);
-      arVideoMesh = new THREE.Mesh(geo, mat);
-      // classic1 plate was shot ~25â€“35Â° look-down â€” tip so cone base sits flush on the table
+      arVideoMesh = new THREE.Mesh(geo, arPlateMat);
+      // classic1 plate was shot ~25–35° look-down — tip so cone base sits flush on the table
       const LOOK_DOWN = (30 * Math.PI) / 180;
       geo.translate(0, foamH / 2, 0); // pivot at bottom edge
       arVideoMesh.rotation.x = -Math.PI / 2 + LOOK_DOWN;
@@ -302,34 +477,56 @@
       arVideoMesh.renderOrder = 10;
       arVideoMesh.visible = false;
 
-      const texLoader = new THREE.TextureLoader();
-      texLoader.setCrossOrigin("anonymous");
-      texLoader.load(STILL, (tex) => {
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.premultiplyAlpha = true;
-        arStillTex = tex;
-        mat.map = arStillTex;
-        mat.transparent = true;
-        mat.alphaTest = 0.25;
-        mat.needsUpdate = true;
-      }, undefined, () => {
-        const tryStill = () => {
-          try { arVideo.currentTime = 0.001; } catch (_) {}
-          mat.map = arVideoTex;
-          mat.needsUpdate = true;
-        };
-        if (arVideo.readyState >= 1) tryStill();
-        else arVideo.addEventListener("loadeddata", tryStill, { once: true });
-      });
-
       return arVideoMesh;
     }
+
     function buildVolcanoGroup() {
-      // AR: keyed Imagine video only â€” NO oval contact shadow (Bryan rejected)
+      // AR: keyed Imagine video/still only — NO oval contact shadow, NO GLTF mesh
       const root = new THREE.Group();
       root.add(makeVideoLayer());
       return root;
     }
+
+    function showArPlaceStill() {
+      if (arVideo) { try { arVideo.pause(); arVideo.currentTime = 0; } catch (_) {} }
+      if (arPlaceTex) setPlateMap(arPlaceTex);
+      if (arVideoMesh) arVideoMesh.visible = true;
+    }
+
+    function pourSodaAR() {
+      if (arStep !== AR.PLACE || !arVideo || !arVideoMesh) return;
+      arStep = AR.SODA;
+      syncArButtons(arStep);
+      arVideoMesh.visible = true;
+      setPlateMap(arVideoTex);
+      setMsg("Pouring baking soda…");
+      playOnce(arVideo, SODA_WEBM, () => {
+        if (arSodaEndTex) setPlateMap(arSodaEndTex);
+        else freezeVideoEnd(arVideo);
+        arStep = AR.SODA_DONE;
+        syncArButtons(arStep);
+        setMsg("Soda is in the crater. Tap Pour vinegar.");
+      });
+    }
+
+    function pourVinegarAR() {
+      if (arStep !== AR.SODA_DONE || !arVideo || !arVideoMesh) return;
+      arStep = AR.VINEGAR;
+      syncArButtons(arStep);
+      arVideoMesh.visible = true;
+      setPlateMap(arVideoTex);
+      setMsg("Pouring vinegar… foam coming up.");
+      scheduleLesson(16000);
+      playOnce(arVideo, VINEGAR_WEBM, () => {
+        freezeVideoEnd(arVideo);
+        setPlateMap(arVideoTex);
+        arStep = AR.DONE;
+        syncArButtons(arStep);
+        setMsg("Foam settled. Exit AR for Why + quiz.");
+        revealLesson();
+      });
+    }
+
     async function startAR() {
       if (!navigator.xr) {
         alert("WebXR not available. Use Chrome on Android with AR support.");
@@ -343,10 +540,9 @@
 
       arCanvas.style.display = "block";
       arHud.classList.add("show");
-      placed = false;
-      arPlaceBtn.hidden = false;
-      arEruptBtn.hidden = true;
-      setMsg("Move phone slowly to find the table surface, then tap Place video.");
+      arStep = AR.UNPLACED;
+      syncArButtons(arStep);
+      setMsg("Move phone slowly to find the table surface, then tap Place.");
 
       renderer = new THREE.WebGLRenderer({ canvas: arCanvas, alpha: true, antialias: true });
       renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -394,55 +590,36 @@
         }
         if (volcanoRoot) scene.remove(volcanoRoot);
         volcanoRoot = buildVolcanoGroup();
-        // Position from hit-test; force upright (+Y up) â€” do not copy surface tilt
+        // Position from hit-test; force upright (+Y up) — do not copy surface tilt
         volcanoRoot.position.setFromMatrixPosition(reticle.matrix);
         const camPos = new THREE.Vector3().setFromMatrixPosition(camera.matrixWorld);
         const dx = camPos.x - volcanoRoot.position.x;
         const dz = camPos.z - volcanoRoot.position.z;
         volcanoRoot.rotation.set(0, Math.atan2(dx, dz), 0);
         scene.add(volcanoRoot);
-        if (arVideoMesh) {
-          arVideoMesh.visible = true;
-          if (arStillTex && arVideoMesh.material) {
-            if (arVideoMesh.material.uniforms) arVideoMesh.material.uniforms.map.value = arStillTex; else arVideoMesh.material.map = arStillTex;
-            arVideoMesh.material.needsUpdate = true;
-          }
-          if (arVideo) { try { arVideo.pause(); arVideo.currentTime = 0; } catch (_) {} }
-        }
-        placed = true;
+        showArPlaceStill();
+        arStep = AR.PLACE;
         reticle.visible = false;
-        arPlaceBtn.hidden = true;
-        arEruptBtn.hidden = false;
-        setMsg("Placed â€” craft volcano + cups on the table. Tap Erupt foam for soda pour â†’ vinegar â†’ foam.");
+        syncArButtons(arStep);
+        setMsg("Placed — craft volcano + cups. Tap Pour baking soda, then Pour vinegar.");
       };
 
-            arEruptBtn.onclick = async () => {
-        if (!volcanoRoot || !arVideo || !arVideoMesh) return;
-        arVideoMesh.visible = true;
-        if (arVideoMesh.material && arVideoTex) {
-          if (arVideoMesh.material.uniforms) arVideoMesh.material.uniforms.map.value = arVideoTex; else arVideoMesh.material.map = arVideoTex;
-          arVideoMesh.material.needsUpdate = true;
-        }
-        arVideo.loop = true;
-        arVideo.currentTime = 0;
-        try { await arVideo.play(); } catch (e) { console.warn(e); }
-        setMsg("Pouring soda â†’ vinegar â†’ foam (loops). Exit AR for Why + quiz.");
-        lessonTimer = setTimeout(revealLesson, 20000);
-      };
-arExitBtn.onclick = () => session.end();
+      arSodaBtn.onclick = () => { pourSodaAR(); };
+      arVinegarBtn.onclick = () => { pourVinegarAR(); };
+      arExitBtn.onclick = () => session.end();
     }
 
     function onXRFrame(time, frame) {
       if (!frame || !xrHitTestSource || !xrRefSpace) return;
       const hitTestResults = frame.getHitTestResults(xrHitTestSource);
-      if (!placed && hitTestResults.length) {
+      if (arStep === AR.UNPLACED && hitTestResults.length) {
         const hit = hitTestResults[0];
         const pose = hit.getPose(xrRefSpace);
         if (pose) {
           reticle.visible = true;
           reticle.matrix.fromArray(pose.transform.matrix);
         }
-      } else if (!placed) {
+      } else if (arStep === AR.UNPLACED) {
         reticle.visible = false;
       }
       if (arVideoTex && arVideo && !arVideo.paused) arVideoTex.needsUpdate = true;
@@ -458,6 +635,8 @@ arExitBtn.onclick = () => session.end();
         renderer.dispose();
         renderer = null;
       }
+      arStep = AR.UNPLACED;
+      syncArButtons(arStep);
       revealLesson();
     }
 
@@ -468,7 +647,6 @@ arExitBtn.onclick = () => session.end();
       });
     });
 
-    // Capability badge
     (async () => {
       try {
         if (navigator.xr && await navigator.xr.isSessionSupported("immersive-ar")) {

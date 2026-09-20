@@ -16,24 +16,32 @@ Living Lab does **not** drive Imagine beat sheets. Cut Room does **not** own on-
 
 ## Current working AR process (do not regress)
 
-**Locked stack (foam3 / cups4):**
+**Locked stack (foam3 / cups4, live = classic3_steps):**
 
 - WebXR in-page AR (not Scene Viewer for the Imagine plate)
-- Place = RGBA still (`eruption_frame0.png`)
-- Erupt = keyed video loop (`eruption.webm`)
+- Place = RGBA still (`assets/keyed/classic3/place_frame0.png`)
+- Pour baking soda = play-once `soda.webm`, freeze on last frame (`soda_end.png` OK)
+- Pour vinegar = play-once `vinegar_erupt.webm` (includes foam), then freeze
 - Material: `MeshBasicMaterial` + `alphaTest ≈ 0.25`
 - **No** black-matte `ShaderMaterial` for the success path (that path caused green plate / fringe / thrash)
+- classic1 `eruption.webm` / `eruption_frame0.png` may remain on disk unused
 
-**On-page:** same assets for Erupt/Replay; Why + quiz stay text.
+**On-page:** same stepped assets for Place / soda / vinegar / Replay; Why + quiz stay text.
 
 ---
 
 ## Deliverables Cut Room must ship
 
-1. `assets/keyed/eruption.webm` — **true YUVA** (libvpx-vp9 encode)
-2. `assets/keyed/eruption_frame0.png` — RGBA, transparent corners, matches open frame
-3. Optional: `assets/keyed/eruption_dual.webm` — RGB + alphaextract streams (Samsung fallback)
-4. `ALPHA_PROOF.txt` — decode proof commands + numbers
+**Live (classic3_steps):**
+
+1. `assets/keyed/classic3/place_frame0.png` — RGBA place still
+2. `assets/keyed/classic3/soda.webm` — **true YUVA** (libvpx-vp9), play once
+3. `assets/keyed/classic3/soda_end.png` — freeze after soda
+4. `assets/keyed/classic3/vinegar_erupt.webm` — **true YUVA**, play once (vinegar + foam)
+5. Optional dual: `soda_dual.webm`, `vinegar_erupt_dual.webm`
+6. `assets/keyed/classic3/ALPHA_PROOF.txt` — decode proof commands + numbers
+
+classic1 `eruption.webm` / `eruption_frame0.png` / `eruption_dual.webm` may remain unused.
 
 ### Alpha proof (mandatory before Yes)
 
@@ -82,7 +90,7 @@ Default ffmpeg decode **without** `-c:v libvpx-vp9` strips alpha → false opaqu
 - Duration **~12–16s** (no stubs without end hold)
 - ≥~80px headroom at max cup tilt; ≥~80px footroom under full foam
 - After foam peaks: stop pour, park both cups, **true freeze ~4–6s**
-- Loop-safe (Erupt loops the full clip)
+- classic3 is play-once per step (not a looping Erupt plate)
 
 ---
 
