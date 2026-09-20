@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Kitchen Volcano — Living Lab</title>
+  <title>Kitchen Volcano â€” Living Lab</title>
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
   <script type="importmap">
   {
@@ -107,16 +107,16 @@
   </header>
 
   <p class="hint" id="arHint">
-    Tap <strong>Place on table (AR)</strong> — stays in this page when WebXR is available.
-    Place the craft volcano + cups, then Erupt: soda pour → vinegar → foam (loops). No 3D mesh.
+    Tap <strong>Place on table (AR)</strong> â€” stays in this page when WebXR is available.
+    Place the craft volcano + cups, then Erupt: soda pour â†’ vinegar â†’ foam (loops). No 3D mesh.
   </p>
 
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=classic1"
-      alt="Craft paper-mâché baking soda volcano"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=classic2"
+      alt="Craft paper-mÃ¢chÃ© baking soda volcano"
       camera-controls
       touch-action="pan-y"
       shadow-intensity="1"
@@ -127,7 +127,7 @@
       reveal="auto"
     ></model-viewer>
     <div class="overlay">
-      <video id="clip" playsinline muted loop poster="../assets/keyed/eruption_frame0.png?v=classic1"></video>
+      <video id="clip" playsinline muted loop poster="../assets/keyed/eruption_frame0.png?v=classic2"></video>
       <img id="clipWebp" alt="Volcano erupting foam">
     </div>
   </div>
@@ -140,7 +140,7 @@
 
   <section class="why" id="why">
     <h2>Why did it foam?</h2>
-    <p>Vinegar is an acid and baking soda is a base. When they mix they make carbon dioxide gas — tiny CO<sub>2</sub> bubbles that swell into the foam that erupts over the crater rim.</p>
+    <p>Vinegar is an acid and baking soda is a base. When they mix they make carbon dioxide gas â€” tiny CO<sub>2</sub> bubbles that swell into the foam that erupts over the crater rim.</p>
   </section>
 
   <section class="quiz" id="quiz">
@@ -156,8 +156,8 @@
   </section>
 
   <section class="mat">
-    <strong>Printed lab mat</strong> (optional — table is fine)
-    <p><a href="../assets/lab-mat.png" download>Download / print lab-mat.png</a> · set the craft volcano on the circle.</p>
+    <strong>Printed lab mat</strong> (optional â€” table is fine)
+    <p><a href="../assets/lab-mat.png" download>Download / print lab-mat.png</a> Â· set the craft volcano on the circle.</p>
     <img src="assets/lab-mat.png" alt="Printable lab mat">
   </section>
 
@@ -191,11 +191,11 @@
     const arEruptBtn = document.getElementById("arEruptBtn");
     const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=classic1";
-    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=classic1";
-    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=classic1";
-    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=classic1";
-    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=classic1";
+    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=classic2";
+    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=classic2";
+    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=classic2";
+    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=classic2";
+    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=classic2";
 
     let mode = "video";
     let lessonTimer = 0;
@@ -252,7 +252,7 @@
       mode = "webp";
     })();
 
-    // ——— WebXR AR ———
+    // â€”â€”â€” WebXR AR â€”â€”â€”
     let renderer, scene, camera, reticle, volcanoRoot, xrHitTestSource, xrRefSpace;
     let placed = false;
     let arVideo, arVideoTex, arVideoMesh;
@@ -294,7 +294,7 @@
       const foamH = 0.32;
       const geo = new THREE.PlaneGeometry(foamW, foamH);
       arVideoMesh = new THREE.Mesh(geo, mat);
-      // classic1 plate was shot ~25–35° look-down — tip so cone base sits flush on the table
+      // classic2 plate was shot ~25â€“35Â° look-down â€” tip so cone base sits flush on the table
       const LOOK_DOWN = (30 * Math.PI) / 180;
       geo.translate(0, foamH / 2, 0); // pivot at bottom edge
       arVideoMesh.rotation.x = -Math.PI / 2 + LOOK_DOWN;
@@ -325,7 +325,7 @@
       return arVideoMesh;
     }
     function buildVolcanoGroup() {
-      // AR: keyed Imagine video only — NO oval contact shadow (Bryan rejected)
+      // AR: keyed Imagine video only â€” NO oval contact shadow (Bryan rejected)
       const root = new THREE.Group();
       root.add(makeVideoLayer());
       return root;
@@ -394,7 +394,7 @@
         }
         if (volcanoRoot) scene.remove(volcanoRoot);
         volcanoRoot = buildVolcanoGroup();
-        // Position from hit-test; force upright (+Y up) — do not copy surface tilt
+        // Position from hit-test; force upright (+Y up) â€” do not copy surface tilt
         volcanoRoot.position.setFromMatrixPosition(reticle.matrix);
         const camPos = new THREE.Vector3().setFromMatrixPosition(camera.matrixWorld);
         const dx = camPos.x - volcanoRoot.position.x;
@@ -413,7 +413,7 @@
         reticle.visible = false;
         arPlaceBtn.hidden = true;
         arEruptBtn.hidden = false;
-        setMsg("Placed — craft volcano + cups on the table. Tap Erupt foam for soda pour → vinegar → foam.");
+        setMsg("Placed â€” craft volcano + cups on the table. Tap Erupt foam for soda pour â†’ vinegar â†’ foam.");
       };
 
             arEruptBtn.onclick = async () => {
@@ -426,7 +426,7 @@
         arVideo.loop = true;
         arVideo.currentTime = 0;
         try { await arVideo.play(); } catch (e) { console.warn(e); }
-        setMsg("Pouring soda → vinegar → foam (loops). Exit AR for Why + quiz.");
+        setMsg("Pouring soda â†’ vinegar â†’ foam (loops). Exit AR for Why + quiz.");
         lessonTimer = setTimeout(revealLesson, 20000);
       };
 arExitBtn.onclick = () => session.end();
