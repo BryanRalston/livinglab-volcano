@@ -26,23 +26,37 @@
     .quiz label { display:block; background:var(--card); border:1px solid #243049; border-radius:12px; padding:10px 12px; margin:8px 0; }
     input[type=range] { width:100%; }
     video.cycle { width:100%; border-radius:12px; background:#000; margin-top:8px; }
-    #arHud { display:none; position:fixed; left:0; right:0; bottom:0; padding:14px 14px calc(14px + env(safe-area-inset-bottom)); background:linear-gradient(transparent, rgba(0,0,0,.75)); color:#fff; z-index:20; }
-    #arHud .row { justify-content:center; }
+    /* Full-screen overlay so AR pinch works anywhere; bar stays at bottom */
+    #arHud {
+      display:none; position:fixed; inset:0; z-index:20;
+      touch-action: none; pointer-events: auto;
+    }
+    #arPinch {
+      position:absolute; inset:0; z-index:1;
+    }
+    #arBar {
+      position:absolute; left:0; right:0; bottom:0; z-index:2;
+      padding:14px 14px calc(14px + env(safe-area-inset-bottom));
+      background:linear-gradient(transparent, rgba(0,0,0,.82));
+      color:#fff; pointer-events: auto;
+    }
+    #arBar .row { justify-content:center; }
     #status { font-size:0.85rem; color:var(--muted); min-height:1.2em; }
+    #status.err { color:#ff8a8a; }
   </style>
 </head>
 <body>
   <header>
     <p class="back"><a href="../">Living Lab experiments</a></p>
     <h1>Solar System</h1>
-    <p class="sub">Photoreal maps on all eight planets — Saturn rings, Earth atmosphere, sun-lit. Floats in space (no table). Pinch to scale.</p>
+    <p class="sub">Photoreal maps on all eight planets — Saturn rings, Earth atmosphere, sun-lit. Floats in space (no table). Pinch to scale in AR.</p>
     <p class="note">Orbit timing uses realistic relative periods (integer ratios for a seamless loop). Distances are compressed for your room. One full-cycle video = 1 Neptune year (~164.8 Earth years).</p>
   </header>
 
   <div class="stage" id="stage"><canvas id="view"></canvas></div>
 
   <div class="panel">
-    <p class="hint">Tap <strong>Enter AR</strong> (Chrome/Android WebXR). Pinch with two fingers (or mouse wheel) to scale.</p>
+    <p class="hint">Tap <strong>Enter AR</strong> (Samsung Chrome / Android WebXR). In AR, pinch with two fingers to scale — system sits about a meter in front of you.</p>
     <label class="hint" for="speed">Live speed: <span id="speedVal">30</span>× (Earth days / real second)</label>
     <input id="speed" type="range" min="1" max="120" value="30" />
     <div class="row">
@@ -56,11 +70,11 @@
     <h2 style="font-size:1.05rem;margin:8px 0 4px">Watch full cycle</h2>
     <p class="hint">Seamless loop from the same orbit integers as the live sim (textured Lambert pass). Not Imagine.</p>
     <video class="cycle" controls loop muted playsinline
-      src="../assets/solar/full_cycle.mp4?v=photo1">
-      <source src="../assets/solar/full_cycle.webm?v=photo1" type="video/webm" />
-      <source src="../assets/solar/full_cycle.mp4?v=photo1" type="video/mp4" />
+      src="../assets/solar/full_cycle.mp4?v=photo2">
+      <source src="../assets/solar/full_cycle.webm?v=photo2" type="video/webm" />
+      <source src="../assets/solar/full_cycle.mp4?v=photo2" type="video/mp4" />
     </video>
-    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=photo1" download style="color:#8ab4ff">Download MP4</a></p>
+    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=photo2" download style="color:#8ab4ff">Download MP4</a></p>
   </div>
 
   <section class="lesson" id="lesson">
@@ -76,10 +90,13 @@
   </section>
 
   <div id="arHud">
-    <p id="arMsg" style="text-align:center;margin:0 0 8px">Pinch to scale · photoreal maps · realistic periods</p>
-    <div class="row">
-      <button class="exit" id="arExit" type="button">Exit AR</button>
-      <button class="ar" id="arWhy" type="button">Why + quiz</button>
+    <div id="arPinch" aria-hidden="true"></div>
+    <div id="arBar">
+      <p id="arMsg" style="text-align:center;margin:0 0 8px">Pinch anywhere to scale · system ~1 m in front</p>
+      <div class="row">
+        <button class="exit" id="arExit" type="button">Exit AR</button>
+        <button class="ar" id="arWhy" type="button">Why + quiz</button>
+      </div>
     </div>
   </div>
 
@@ -87,9 +104,10 @@
     import * as THREE from "three";
 
     const TEX = "../assets/solar/textures/";
-    const V = "?v=photo1";
+    const V = "?v=photo2";
+    const AR_DEFAULT_SCALE = 2.6;
+    const PREVIEW_SCALE = 1;
 
-    // Integer revolutions per seamless loop (match assets/solar/sim_meta.json)
     const PLANETS = [
       { name:"Mercury", orbits:684, spins:1368, map:"mercury.jpg", size:0.012, dist:0.18, rough:0.9 },
       { name:"Venus",   orbits:268, spins:536,  map:"venus.jpg",   size:0.016, dist:0.26, rough:0.75 },
@@ -110,23 +128,30 @@
     const lesson = document.getElementById("lesson");
     const feedback = document.getElementById("feedback");
     const arHud = document.getElementById("arHud");
+    const arPinch = document.getElementById("arPinch");
+    const arMsg = document.getElementById("arMsg");
+
+    function setStatus(msg, isErr) {
+      status.textContent = msg;
+      status.classList.toggle("err", !!isErr);
+    }
 
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.xr.enabled = true;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 1.15;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x050814);
     const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 80);
     camera.position.set(0, 0.55, 2.2);
 
-    scene.add(new THREE.AmbientLight(0x334466, 0.28));
-    scene.add(new THREE.HemisphereLight(0x9eb6ff, 0x0a0810, 0.35));
-    const sunLight = new THREE.PointLight(0xfff2d0, 3.2, 8, 1.6);
-    scene.add(sunLight);
+    const ambient = new THREE.AmbientLight(0x6688aa, 0.35);
+    const hemi = new THREE.HemisphereLight(0xb8c8ff, 0x1a1520, 0.45);
+    const sunLight = new THREE.PointLight(0xfff2d0, 3.6, 12, 1.4);
+    scene.add(ambient, hemi, sunLight);
 
     const root = new THREE.Group();
     scene.add(root);
@@ -151,6 +176,7 @@
     }
 
     const bodies = [];
+    const orbitGuides = [];
 
     async function build() {
       const sunMap = await loadMap("sun.jpg");
@@ -160,19 +186,15 @@
       );
       root.add(sun);
       const sunGlow = new THREE.Mesh(
-        new THREE.SphereGeometry(0.095, 32, 32),
-        new THREE.MeshBasicMaterial({ color: 0xffaa44, transparent: true, opacity: 0.22, depthWrite: false })
+        new THREE.SphereGeometry(0.11, 32, 32),
+        new THREE.MeshBasicMaterial({ color: 0xffaa44, transparent: true, opacity: 0.28, depthWrite: false })
       );
       root.add(sunGlow);
 
       for (const p of PLANETS) {
         const orbit = new THREE.Group();
         const map = await loadMap(p.map);
-        const matParams = {
-          map,
-          roughness: p.rough,
-          metalness: 0.02,
-        };
+        const matParams = { map, roughness: p.rough, metalness: 0.02 };
         if (p.normal) {
           try { matParams.normalMap = await loadLinear(p.normal); } catch (_) {}
         }
@@ -194,11 +216,8 @@
           const atmo = new THREE.Mesh(
             new THREE.SphereGeometry(p.size * 1.045, 32, 32),
             new THREE.MeshBasicMaterial({
-              color: 0x6eb6ff,
-              transparent: true,
-              opacity: 0.18,
-              depthWrite: false,
-              side: THREE.BackSide,
+              color: 0x6eb6ff, transparent: true, opacity: 0.22,
+              depthWrite: false, side: THREE.BackSide,
             })
           );
           mesh.add(atmo);
@@ -212,13 +231,9 @@
             new THREE.MeshStandardMaterial({
               map: ringTex || null,
               color: ringTex ? 0xffffff : 0xc9b896,
-              transparent: true,
-              opacity: ringTex ? 1 : 0.75,
-              side: THREE.DoubleSide,
-              roughness: 0.8,
-              metalness: 0.05,
-              depthWrite: false,
-              alphaTest: 0.08,
+              transparent: true, opacity: ringTex ? 1 : 0.75,
+              side: THREE.DoubleSide, roughness: 0.8, metalness: 0.05,
+              depthWrite: false, alphaTest: 0.08,
             })
           );
           ring.rotation.x = -Math.PI / 2;
@@ -226,20 +241,23 @@
         }
 
         const guide = new THREE.Mesh(
-          new THREE.RingGeometry(p.dist - 0.0015, p.dist + 0.0015, 128),
-          new THREE.MeshBasicMaterial({ color: 0x2a3550, side: THREE.DoubleSide, transparent: true, opacity: 0.35 })
+          new THREE.RingGeometry(p.dist - 0.0025, p.dist + 0.0025, 128),
+          new THREE.MeshBasicMaterial({
+            color: 0x6a8cc8, side: THREE.DoubleSide, transparent: true, opacity: 0.55,
+          })
         );
         guide.rotation.x = -Math.PI / 2;
         root.add(guide);
+        orbitGuides.push(guide);
         root.add(orbit);
         bodies.push({ orbit, mesh, orbits: p.orbits, spins: p.spins });
       }
 
-      status.textContent = "Ready — Enter AR or watch the full cycle.";
+      setStatus("Ready — tap Enter AR (Samsung Chrome). Pinch in AR to scale.");
     }
 
     build().catch((e) => {
-      status.textContent = "Texture load issue — colored spheres fallback. " + (e && e.message ? e.message : "");
+      setStatus("Texture load issue — colored spheres may be missing. " + (e && e.message ? e.message : ""), true);
     });
 
     function resize() {
@@ -252,10 +270,25 @@
     addEventListener("resize", resize);
 
     let tDays = 0;
-    let userScale = 1;
+    let userScale = PREVIEW_SCALE;
     const clock = new THREE.Clock();
 
     function applyScale() { root.scale.setScalar(userScale); }
+
+    function setPreviewLights() {
+      ambient.intensity = 0.35;
+      hemi.intensity = 0.45;
+      sunLight.intensity = 3.6;
+      renderer.toneMappingExposure = 1.15;
+      for (const g of orbitGuides) g.material.opacity = 0.45;
+    }
+    function setArLights() {
+      ambient.intensity = 0.75;
+      hemi.intensity = 0.7;
+      sunLight.intensity = 5.2;
+      renderer.toneMappingExposure = 1.35;
+      for (const g of orbitGuides) g.material.opacity = 0.7;
+    }
 
     function tick() {
       const dt = clock.getDelta();
@@ -272,30 +305,43 @@
     }
     renderer.setAnimationLoop(tick);
 
-    let pinchStart = null;
-    stage.addEventListener("touchstart", (e) => {
-      if (e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        pinchStart = { dist: Math.hypot(dx, dy), scale: userScale };
-      }
-    }, { passive: true });
-    stage.addEventListener("touchmove", (e) => {
-      if (e.touches.length === 2 && pinchStart) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        userScale = Math.min(3, Math.max(0.25, pinchStart.scale * (Math.hypot(dx, dy) / pinchStart.dist)));
-      }
-    }, { passive: true });
-    stage.addEventListener("touchend", () => { pinchStart = null; });
+    // Pinch helpers (preview stage + AR overlay)
+    function bindPinch(el) {
+      let pinchStart = null;
+      el.addEventListener("touchstart", (e) => {
+        if (e.touches.length === 2) {
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          pinchStart = { dist: Math.hypot(dx, dy), scale: userScale };
+        }
+      }, { passive: true });
+      el.addEventListener("touchmove", (e) => {
+        if (e.touches.length === 2 && pinchStart) {
+          e.preventDefault();
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          userScale = Math.min(5, Math.max(0.35, pinchStart.scale * (Math.hypot(dx, dy) / pinchStart.dist)));
+          if (arMsg && renderer.xr.isPresenting) {
+            arMsg.textContent = "Scale " + userScale.toFixed(1) + "× · pinch to resize";
+          }
+        }
+      }, { passive: false });
+      el.addEventListener("touchend", () => { pinchStart = null; });
+      el.addEventListener("touchcancel", () => { pinchStart = null; });
+    }
+    bindPinch(stage);
+    bindPinch(arPinch);
+    bindPinch(arHud);
+
     stage.addEventListener("wheel", (e) => {
       e.preventDefault();
-      userScale = Math.min(3, Math.max(0.25, userScale * (e.deltaY > 0 ? 0.92 : 1.08)));
+      userScale = Math.min(5, Math.max(0.35, userScale * (e.deltaY > 0 ? 0.92 : 1.08)));
     }, { passive: false });
 
     speedEl.addEventListener("input", () => { speedVal.textContent = speedEl.value; });
     document.getElementById("previewBtn").onclick = () => {
-      tDays = 0; userScale = 1; lesson.classList.remove("show"); status.textContent = "Preview reset.";
+      tDays = 0; userScale = PREVIEW_SCALE; lesson.classList.remove("show");
+      setStatus("Preview reset.");
     };
     document.querySelectorAll("input[name=q]").forEach((el) => {
       el.addEventListener("change", () => {
@@ -306,34 +352,87 @@
     });
     function revealLesson() { lesson.classList.add("show"); lesson.scrollIntoView({ behavior: "smooth", block: "start" }); }
 
+    function placeInFrontOfUser() {
+      // local/viewer space: -Z is forward; sit ~1 m ahead, slight down so Sun is in view
+      root.position.set(0, -0.05, -1.0);
+      root.rotation.set(0.15, 0, 0);
+      userScale = AR_DEFAULT_SCALE;
+      applyScale();
+    }
+
     let xrSession = null;
     document.getElementById("arBtn").onclick = async () => {
-      if (!navigator.xr) { status.textContent = "WebXR not available — use the preview + full-cycle video."; revealLesson(); return; }
-      const ok = await navigator.xr.isSessionSupported("immersive-ar");
-      if (!ok) { status.textContent = "No immersive-ar here — preview + video still work."; revealLesson(); return; }
+      setStatus("Checking WebXR…");
+      if (!navigator.xr) {
+        setStatus("WebXR missing — open in Samsung Chrome (Android). Preview + video still work.", true);
+        revealLesson();
+        return;
+      }
+      let ok = false;
+      try {
+        ok = await navigator.xr.isSessionSupported("immersive-ar");
+      } catch (e) {
+        setStatus("Could not check AR support: " + (e.message || e), true);
+        revealLesson();
+        return;
+      }
+      if (!ok) {
+        setStatus("immersive-ar not supported on this browser/device. Use Samsung Chrome on Android.", true);
+        revealLesson();
+        return;
+      }
+
+      // Required: local reference space before session (viewer-space AR, no floor hit-test)
+      try {
+        renderer.xr.setReferenceSpaceType("local");
+      } catch (e) {
+        setStatus("setReferenceSpaceType(local) failed: " + (e.message || e), true);
+      }
+
       try {
         xrSession = await navigator.xr.requestSession("immersive-ar", {
           requiredFeatures: ["local"],
-          optionalFeatures: ["local-floor", "unbounded", "dom-overlay"],
+          optionalFeatures: ["dom-overlay", "local-floor", "unbounded"],
           domOverlay: { root: arHud },
         });
-      } catch (e) {
-        try { xrSession = await navigator.xr.requestSession("immersive-ar", { requiredFeatures: ["local"] }); }
-        catch (e2) { status.textContent = "Could not start AR: " + (e2.message || e2); revealLesson(); return; }
+      } catch (e1) {
+        try {
+          xrSession = await navigator.xr.requestSession("immersive-ar", {
+            requiredFeatures: ["local"],
+          });
+        } catch (e2) {
+          setStatus("Enter AR failed: " + (e2.message || e2) + " (first try: " + (e1.message || e1) + ")", true);
+          revealLesson();
+          return;
+        }
       }
-      await renderer.xr.setSession(xrSession);
+
+      try {
+        await renderer.xr.setSession(xrSession);
+      } catch (e) {
+        setStatus("setSession failed: " + (e.message || e), true);
+        try { await xrSession.end(); } catch (_) {}
+        xrSession = null;
+        revealLesson();
+        return;
+      }
+
       arHud.style.display = "block";
-      scene.background = null;
-      root.position.set(0, 0, -1.35);
-      root.rotation.set(0.2, 0, 0);
-      status.textContent = "AR running — pinch to scale.";
+      scene.background = null; // camera passthrough
+      setArLights();
+      placeInFrontOfUser();
+      setStatus("AR running — look for the Sun ~1 m ahead. Pinch to scale.");
+      arMsg.textContent = "Pinch anywhere to scale · system ~1 m in front";
+
       xrSession.addEventListener("end", () => {
         arHud.style.display = "none";
         scene.background = new THREE.Color(0x050814);
+        setPreviewLights();
         root.position.set(0, 0, 0);
         root.rotation.set(0, 0, 0);
+        userScale = PREVIEW_SCALE;
         camera.position.set(0, 0.55, 2.2);
-        status.textContent = "Exited AR.";
+        setStatus("Exited AR.");
         revealLesson();
         xrSession = null;
       });
