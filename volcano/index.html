@@ -115,7 +115,7 @@
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=classic2"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=classic1"
       alt="Craft paper-mÃ¢chÃ© baking soda volcano"
       camera-controls
       touch-action="pan-y"
@@ -127,7 +127,7 @@
       reveal="auto"
     ></model-viewer>
     <div class="overlay">
-      <video id="clip" playsinline muted loop poster="../assets/keyed/eruption_frame0.png?v=classic2"></video>
+      <video id="clip" playsinline muted loop poster="../assets/keyed/eruption_frame0.png?v=classic1"></video>
       <img id="clipWebp" alt="Volcano erupting foam">
     </div>
   </div>
@@ -191,11 +191,11 @@
     const arEruptBtn = document.getElementById("arEruptBtn");
     const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=classic2";
-    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=classic2";
-    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=classic2";
-    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=classic2";
-    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=classic2";
+    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=classic1";
+    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=classic1";
+    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=classic1";
+    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=classic1";
+    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=classic1";
 
     let mode = "video";
     let lessonTimer = 0;
@@ -294,7 +294,7 @@
       const foamH = 0.32;
       const geo = new THREE.PlaneGeometry(foamW, foamH);
       arVideoMesh = new THREE.Mesh(geo, mat);
-      // classic2 plate was shot ~25â€“35Â° look-down â€” tip so cone base sits flush on the table
+      // classic1 plate was shot ~25â€“35Â° look-down â€” tip so cone base sits flush on the table
       const LOOK_DOWN = (30 * Math.PI) / 180;
       geo.translate(0, foamH / 2, 0); // pivot at bottom edge
       arVideoMesh.rotation.x = -Math.PI / 2 + LOOK_DOWN;
