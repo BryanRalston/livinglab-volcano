@@ -1,0 +1,6 @@
+# Solar texture credits
+Public educational planet maps used in Living Lab Solar (photo1):
+- Earth / Moon / related: three.js examples textures/planets (mrdoob/three.js)
+- Mercury–Neptune / Sun lineage: threex.planets / public planet map collections
+- Saturn ring: generated alpha band texture for WebGL RingGeometry
+Not for commercial resale of the maps alone. Educational AR demo OK.

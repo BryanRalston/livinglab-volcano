@@ -4,11 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Living Lab — Solar System</title>
-  <script type="importmap">{
-    "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-    }
-  }</script>
+  <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+  </script>
   <style>
     :root { --bg:#070b16; --card:#12182a; --text:#eaf0ff; --muted:#9aa8c7; --accent:#5b8cff; }
     * { box-sizing: border-box; }
@@ -17,7 +15,7 @@
     .back a { color:#8ab4ff; text-decoration:none; font-size:0.9rem; }
     h1 { font-size:1.35rem; margin:8px 0 4px; }
     .sub, .note, .hint { color:var(--muted); font-size:0.92rem; line-height:1.45; }
-    .stage { position:relative; height: min(48vh, 400px); margin: 12px 16px; border-radius: 16px; overflow:hidden; background:#000; border:1px solid #1c2438; touch-action: none; }
+    .stage { position:relative; height: min(52vh, 440px); margin: 12px 16px; border-radius: 16px; overflow:hidden; background:#000; border:1px solid #1c2438; touch-action: none; }
     #view { width:100%; height:100%; display:block; }
     .row { display:flex; gap:8px; flex-wrap:wrap; margin: 10px 0 0; }
     button { border:0; border-radius:999px; padding:10px 14px; font-weight:650; font-size:0.95rem; }
@@ -37,8 +35,8 @@
   <header>
     <p class="back"><a href="../">Living Lab experiments</a></p>
     <h1>Solar System</h1>
-    <p class="sub">All eight planets with realistic orbit timing. Floats in any space — no table scan. Pinch to scale.</p>
-    <p class="note">Orbit timing is realistic (integer period ratios for a seamless loop). Distances are scaled for your space. One full-cycle video = 1 Neptune year (~164.8 Earth years of motion).</p>
+    <p class="sub">Photoreal maps on all eight planets — Saturn rings, Earth atmosphere, sun-lit. Floats in space (no table). Pinch to scale.</p>
+    <p class="note">Orbit timing uses realistic relative periods (integer ratios for a seamless loop). Distances are compressed for your room. One full-cycle video = 1 Neptune year (~164.8 Earth years).</p>
   </header>
 
   <div class="stage" id="stage"><canvas id="view"></canvas></div>
@@ -51,19 +49,18 @@
       <button class="ar" id="arBtn" type="button">Enter AR</button>
       <button class="exit" id="previewBtn" type="button">Reset preview</button>
     </div>
-    <p id="status"></p>
+    <p id="status">Loading planet textures…</p>
   </div>
 
   <div class="videoWrap">
     <h2 style="font-size:1.05rem;margin:8px 0 4px">Watch full cycle</h2>
-    <p class="hint">Seamless loop from the same sim math (orbits + spins return at the cut). Not Imagine.</p>
+    <p class="hint">Seamless loop from the same orbit integers as the live sim (textured Lambert pass). Not Imagine.</p>
     <video class="cycle" controls loop muted playsinline
-      poster=""
-      src="../assets/solar/full_cycle.mp4">
-      <source src="../assets/solar/full_cycle.webm" type="video/webm" />
-      <source src="../assets/solar/full_cycle.mp4" type="video/mp4" />
+      src="../assets/solar/full_cycle.mp4?v=photo1">
+      <source src="../assets/solar/full_cycle.webm?v=photo1" type="video/webm" />
+      <source src="../assets/solar/full_cycle.mp4?v=photo1" type="video/mp4" />
     </video>
-    <p class="hint"><a href="../assets/solar/full_cycle.mp4" download style="color:#8ab4ff">Download MP4</a></p>
+    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=photo1" download style="color:#8ab4ff">Download MP4</a></p>
   </div>
 
   <section class="lesson" id="lesson">
@@ -79,7 +76,7 @@
   </section>
 
   <div id="arHud">
-    <p id="arMsg" style="text-align:center;margin:0 0 8px">Pinch to scale · orbits use realistic relative periods</p>
+    <p id="arMsg" style="text-align:center;margin:0 0 8px">Pinch to scale · photoreal maps · realistic periods</p>
     <div class="row">
       <button class="exit" id="arExit" type="button">Exit AR</button>
       <button class="ar" id="arWhy" type="button">Why + quiz</button>
@@ -89,18 +86,21 @@
   <script type="module">
     import * as THREE from "three";
 
+    const TEX = "../assets/solar/textures/";
+    const V = "?v=photo1";
+
     // Integer revolutions per seamless loop (match assets/solar/sim_meta.json)
     const PLANETS = [
-      { name:"Mercury", orbits:684, spins:1368, color:0xb1b1b1, size:0.012, dist:0.18 },
-      { name:"Venus",   orbits:268, spins:536,  color:0xe0c080, size:0.016, dist:0.26 },
-      { name:"Earth",   orbits:165, spins:495,  color:0x4f8fdf, size:0.017, dist:0.34 },
-      { name:"Mars",    orbits:88,  spins:176,  color:0xd0653a, size:0.014, dist:0.42 },
-      { name:"Jupiter", orbits:14,  spins:28,   color:0xd2aa78, size:0.040, dist:0.58 },
-      { name:"Saturn",  orbits:6,   spins:12,   color:0xdcc88c, size:0.034, dist:0.74 },
-      { name:"Uranus",  orbits:2,   spins:4,    color:0x96d2dc, size:0.024, dist:0.90 },
-      { name:"Neptune", orbits:1,   spins:2,    color:0x466ed2, size:0.024, dist:1.04 },
+      { name:"Mercury", orbits:684, spins:1368, map:"mercury.jpg", size:0.012, dist:0.18, rough:0.9 },
+      { name:"Venus",   orbits:268, spins:536,  map:"venus.jpg",   size:0.016, dist:0.26, rough:0.75 },
+      { name:"Earth",   orbits:165, spins:495,  map:"earth.jpg",   size:0.017, dist:0.34, rough:0.55, atmosphere:true, normal:"earth_normal.jpg", spec:"earth_specular.jpg" },
+      { name:"Mars",    orbits:88,  spins:176,  map:"mars.jpg",    size:0.014, dist:0.42, rough:0.85 },
+      { name:"Jupiter", orbits:14,  spins:28,   map:"jupiter.jpg", size:0.040, dist:0.58, rough:0.65 },
+      { name:"Saturn",  orbits:6,   spins:12,   map:"saturn.jpg",  size:0.034, dist:0.74, rough:0.7, rings:true },
+      { name:"Uranus",  orbits:2,   spins:4,    map:"uranus.jpg",  size:0.024, dist:0.90, rough:0.55 },
+      { name:"Neptune", orbits:1,   spins:2,    map:"neptune.jpg", size:0.024, dist:1.04, rough:0.55 },
     ];
-    const LOOP_DAYS = 164.79132 * 365.25; // one Neptune year in Earth days (sim meaning)
+    const LOOP_DAYS = 164.79132 * 365.25;
 
     const canvas = document.getElementById("view");
     const stage = document.getElementById("stage");
@@ -114,46 +114,133 @@
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.xr.enabled = true;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x050814);
     const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 80);
     camera.position.set(0, 0.55, 2.2);
 
-    scene.add(new THREE.HemisphereLight(0xbfd2ff, 0x1a1520, 0.9));
-    const sunLight = new THREE.PointLight(0xfff1c8, 2.4, 6, 2);
+    scene.add(new THREE.AmbientLight(0x334466, 0.28));
+    scene.add(new THREE.HemisphereLight(0x9eb6ff, 0x0a0810, 0.35));
+    const sunLight = new THREE.PointLight(0xfff2d0, 3.2, 8, 1.6);
     scene.add(sunLight);
 
     const root = new THREE.Group();
     scene.add(root);
-    const sun = new THREE.Mesh(new THREE.SphereGeometry(0.07, 32, 32), new THREE.MeshBasicMaterial({ color: 0xffcc55 }));
-    root.add(sun);
+
+    const loader = new THREE.TextureLoader();
+    function loadMap(file) {
+      return new Promise((resolve, reject) => {
+        loader.load(TEX + file + V, (t) => {
+          t.colorSpace = THREE.SRGBColorSpace;
+          t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+          resolve(t);
+        }, undefined, reject);
+      });
+    }
+    function loadLinear(file) {
+      return new Promise((resolve, reject) => {
+        loader.load(TEX + file + V, (t) => {
+          t.colorSpace = THREE.LinearSRGBColorSpace;
+          resolve(t);
+        }, undefined, reject);
+      });
+    }
 
     const bodies = [];
-    for (const p of PLANETS) {
-      const orbit = new THREE.Group();
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(p.size, 20, 20),
-        new THREE.MeshStandardMaterial({ color: p.color, roughness: 0.55, metalness: 0.05 })
+
+    async function build() {
+      const sunMap = await loadMap("sun.jpg");
+      const sun = new THREE.Mesh(
+        new THREE.SphereGeometry(0.08, 48, 48),
+        new THREE.MeshBasicMaterial({ map: sunMap })
       );
-      mesh.position.x = p.dist;
-      // spin marker child
-      const marker = new THREE.Mesh(
-        new THREE.SphereGeometry(p.size * 0.22, 8, 8),
-        new THREE.MeshBasicMaterial({ color: 0xffffff })
+      root.add(sun);
+      const sunGlow = new THREE.Mesh(
+        new THREE.SphereGeometry(0.095, 32, 32),
+        new THREE.MeshBasicMaterial({ color: 0xffaa44, transparent: true, opacity: 0.22, depthWrite: false })
       );
-      marker.position.x = p.size * 0.75;
-      mesh.add(marker);
-      orbit.add(mesh);
-      const ring = new THREE.Mesh(
-        new THREE.RingGeometry(p.dist - 0.002, p.dist + 0.002, 96),
-        new THREE.MeshBasicMaterial({ color: 0x2a3550, side: THREE.DoubleSide, transparent: true, opacity: 0.45 })
-      );
-      ring.rotation.x = -Math.PI / 2;
-      root.add(ring);
-      root.add(orbit);
-      bodies.push({ orbit, mesh, orbits: p.orbits, spins: p.spins });
+      root.add(sunGlow);
+
+      for (const p of PLANETS) {
+        const orbit = new THREE.Group();
+        const map = await loadMap(p.map);
+        const matParams = {
+          map,
+          roughness: p.rough,
+          metalness: 0.02,
+        };
+        if (p.normal) {
+          try { matParams.normalMap = await loadLinear(p.normal); } catch (_) {}
+        }
+        if (p.spec) {
+          try {
+            matParams.metalnessMap = await loadLinear(p.spec);
+            matParams.metalness = 0.35;
+            matParams.roughness = 0.45;
+          } catch (_) {}
+        }
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(p.size, 48, 48),
+          new THREE.MeshStandardMaterial(matParams)
+        );
+        mesh.position.x = p.dist;
+        orbit.add(mesh);
+
+        if (p.atmosphere) {
+          const atmo = new THREE.Mesh(
+            new THREE.SphereGeometry(p.size * 1.045, 32, 32),
+            new THREE.MeshBasicMaterial({
+              color: 0x6eb6ff,
+              transparent: true,
+              opacity: 0.18,
+              depthWrite: false,
+              side: THREE.BackSide,
+            })
+          );
+          mesh.add(atmo);
+        }
+
+        if (p.rings) {
+          let ringTex = null;
+          try { ringTex = await loadMap("saturn_ring.png"); } catch (_) {}
+          const ring = new THREE.Mesh(
+            new THREE.RingGeometry(p.size * 1.35, p.size * 2.35, 96),
+            new THREE.MeshStandardMaterial({
+              map: ringTex || null,
+              color: ringTex ? 0xffffff : 0xc9b896,
+              transparent: true,
+              opacity: ringTex ? 1 : 0.75,
+              side: THREE.DoubleSide,
+              roughness: 0.8,
+              metalness: 0.05,
+              depthWrite: false,
+              alphaTest: 0.08,
+            })
+          );
+          ring.rotation.x = -Math.PI / 2;
+          mesh.add(ring);
+        }
+
+        const guide = new THREE.Mesh(
+          new THREE.RingGeometry(p.dist - 0.0015, p.dist + 0.0015, 128),
+          new THREE.MeshBasicMaterial({ color: 0x2a3550, side: THREE.DoubleSide, transparent: true, opacity: 0.35 })
+        );
+        guide.rotation.x = -Math.PI / 2;
+        root.add(guide);
+        root.add(orbit);
+        bodies.push({ orbit, mesh, orbits: p.orbits, spins: p.spins });
+      }
+
+      status.textContent = "Ready — Enter AR or watch the full cycle.";
     }
+
+    build().catch((e) => {
+      status.textContent = "Texture load issue — colored spheres fallback. " + (e && e.message ? e.message : "");
+    });
 
     function resize() {
       const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -168,26 +255,23 @@
     let userScale = 1;
     const clock = new THREE.Clock();
 
-    function applyScale() {
-      root.scale.setScalar(userScale);
-    }
+    function applyScale() { root.scale.setScalar(userScale); }
 
     function tick() {
       const dt = clock.getDelta();
       const daysPerSec = Number(speedEl.value);
       tDays = (tDays + dt * daysPerSec) % LOOP_DAYS;
-      const u = tDays / LOOP_DAYS; // 0..1 within Neptune year
+      const u = tDays / LOOP_DAYS;
       for (const b of bodies) {
         b.orbit.rotation.y = 2 * Math.PI * b.orbits * u;
         b.mesh.rotation.y = 2 * Math.PI * b.spins * u;
       }
-      if (!renderer.xr.isPresenting) root.rotation.y += dt * 0.04;
+      if (!renderer.xr.isPresenting) root.rotation.y += dt * 0.035;
       applyScale();
       renderer.render(scene, camera);
     }
     renderer.setAnimationLoop(tick);
 
-    // Pinch / wheel scale
     let pinchStart = null;
     stage.addEventListener("touchstart", (e) => {
       if (e.touches.length === 2) {
@@ -200,8 +284,7 @@
       if (e.touches.length === 2 && pinchStart) {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
-        const dist = Math.hypot(dx, dy);
-        userScale = Math.min(3, Math.max(0.25, pinchStart.scale * (dist / pinchStart.dist)));
+        userScale = Math.min(3, Math.max(0.25, pinchStart.scale * (Math.hypot(dx, dy) / pinchStart.dist)));
       }
     }, { passive: true });
     stage.addEventListener("touchend", () => { pinchStart = null; });

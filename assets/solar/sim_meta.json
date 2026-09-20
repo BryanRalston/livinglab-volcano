@@ -2,104 +2,65 @@
   "loopSeconds": 10.0,
   "frames": 240,
   "fps": 24,
-  "meaning": "One loop = 1 Neptune year (~164.8 Earth years). Integer orbit/spin counts for seamless cut.",
-  "scaleNote": "Distances compressed; relative periods realistic (integer approx).",
+  "meaning": "One video loop = 1 Neptune year (~164.8 Earth years). Periods snapped to integer revolution counts for a seamless cut.",
+  "scaleNote": "Distances compressed for room/AR; textures from public planet maps (threex/three.js examples lineage).",
+  "look": "Textured Lambert spheres + Saturn ring; same orbit integers as live WebXR.",
   "planets": [
     {
       "name": "Mercury",
       "orbits": 684,
       "spins": 1368,
-      "color": [
-        177,
-        177,
-        177
-      ],
-      "size": 4,
-      "dist": 28
+      "size": 5,
+      "dist": 32
     },
     {
       "name": "Venus",
       "orbits": 268,
       "spins": 536,
-      "color": [
-        224,
-        192,
-        128
-      ],
-      "size": 6,
-      "dist": 42
+      "size": 7,
+      "dist": 48
     },
     {
       "name": "Earth",
       "orbits": 165,
       "spins": 495,
-      "color": [
-        79,
-        143,
-        223
-      ],
-      "size": 6,
-      "dist": 56
+      "size": 7,
+      "dist": 64
     },
     {
       "name": "Mars",
       "orbits": 88,
       "spins": 176,
-      "color": [
-        208,
-        101,
-        58
-      ],
-      "size": 5,
-      "dist": 72
+      "size": 6,
+      "dist": 80
     },
     {
       "name": "Jupiter",
       "orbits": 14,
       "spins": 28,
-      "color": [
-        210,
-        170,
-        120
-      ],
-      "size": 14,
-      "dist": 100
+      "size": 16,
+      "dist": 112
     },
     {
       "name": "Saturn",
       "orbits": 6,
       "spins": 12,
-      "color": [
-        220,
-        200,
-        140
-      ],
-      "size": 12,
-      "dist": 130
+      "size": 14,
+      "dist": 148
     },
     {
       "name": "Uranus",
       "orbits": 2,
       "spins": 4,
-      "color": [
-        150,
-        210,
-        220
-      ],
-      "size": 9,
-      "dist": 158
+      "size": 10,
+      "dist": 178
     },
     {
       "name": "Neptune",
       "orbits": 1,
       "spins": 2,
-      "color": [
-        70,
-        110,
-        210
-      ],
-      "size": 9,
-      "dist": 180
+      "size": 10,
+      "dist": 204
     }
   ]
 }
