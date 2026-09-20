@@ -38,8 +38,9 @@ Living Lab does **not** drive Imagine beat sheets. Cut Room does **not** own on-
 2. `assets/keyed/classic3/soda.webm` — **true YUVA** (libvpx-vp9), play once
 3. `assets/keyed/classic3/soda_end.png` — freeze after soda
 4. `assets/keyed/classic3/vinegar_erupt.webm` — **true YUVA**, play once (vinegar + foam)
-5. Optional dual: `soda_dual.webm`, `vinegar_erupt_dual.webm`
-6. `assets/keyed/classic3/ALPHA_PROOF.txt` — decode proof commands + numbers
+5. `assets/keyed/classic3/vinegar_end.png` — freeze after vinegar (last foam frame)
+6. Optional dual: `soda_dual.webm`, `vinegar_erupt_dual.webm`
+7. `assets/keyed/classic3/ALPHA_PROOF.txt` — decode proof commands + numbers
 
 classic1 `eruption.webm` / `eruption_frame0.png` / `eruption_dual.webm` may remain unused.
 

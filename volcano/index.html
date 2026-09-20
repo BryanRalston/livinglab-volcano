@@ -187,6 +187,7 @@
     const SODA_WEBM = `../assets/keyed/classic3/soda.webm?v=${V}`;
     const SODA_END = `../assets/keyed/classic3/soda_end.png?v=${V}`;
     const VINEGAR_WEBM = `../assets/keyed/classic3/vinegar_erupt.webm?v=${V}`;
+    const VINEGAR_END = `../assets/keyed/classic3/vinegar_end.png?v=${V}`;
 
     const PAGE = Object.freeze({
       PLACE: "place",
@@ -322,9 +323,7 @@
       plateStill.classList.add("hide");
       video.classList.add("use-video");
       const finish = () => {
-        freezeVideoEnd(video);
-        video.classList.add("use-video");
-        plateStill.classList.add("hide");
+        showStill(VINEGAR_END);
         pageStep = PAGE.DONE;
         syncPageButtons(pageStep);
         revealLesson();
@@ -361,6 +360,7 @@
     let arVideo, arVideoTex, arVideoMesh, arPlateMat;
     let arPlaceTex = null;
     let arSodaEndTex = null;
+    let arVinegarEndTex = null;
 
     const texLoader = new THREE.TextureLoader();
     texLoader.setCrossOrigin("anonymous");
@@ -378,6 +378,10 @@
     loadStillTex(SODA_END, (tex) => {
       arSodaEndTex = tex;
       if (arStep === AR.SODA_DONE) setPlateMap(tex);
+    });
+    loadStillTex(VINEGAR_END, (tex) => {
+      arVinegarEndTex = tex;
+      if (arStep === AR.DONE) setPlateMap(tex);
     });
 
     function setMsg(t) { arMsg.textContent = t; }
@@ -518,8 +522,8 @@
       setMsg("Pouring vinegar… foam coming up.");
       scheduleLesson(16000);
       playOnce(arVideo, VINEGAR_WEBM, () => {
-        freezeVideoEnd(arVideo);
-        setPlateMap(arVideoTex);
+        if (arVinegarEndTex) setPlateMap(arVinegarEndTex);
+        else freezeVideoEnd(arVideo);
         arStep = AR.DONE;
         syncArButtons(arStep);
         setMsg("Foam settled. Exit AR for Why + quiz.");

@@ -48,4 +48,5 @@ soda_dual.webm
 soda_end.png
 vinegar_erupt.webm (yuva libvpx-vp9) 349f ~14.54s
 vinegar_erupt_dual.webm
+vinegar_end.png (Living Lab: last-frame RGBA freeze of vinegar_erupt.webm)
 ALPHA_PROOF.txt
