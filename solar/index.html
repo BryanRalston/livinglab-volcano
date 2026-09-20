@@ -49,7 +49,7 @@
   <header>
     <p class="back"><a href="../">Living Lab experiments</a></p>
     <h1>Solar System</h1>
-    <p class="sub">Photoreal maps on all eight planets — procedural glowing sun (no stripe seam), corona, Saturn rings, Earth atmosphere. Floats in space (no table). Pinch to scale in AR.</p>
+    <p class="sub">Photoreal maps on all eight planets — realistic procedural sun — granulation, limb darkening, soft corona. Floats in space (no table). Pinch to scale in AR.</p>
     <p class="note">Orbit timing uses realistic relative periods (integer ratios for a seamless loop). Distances are compressed for your room. One full-cycle video = 1 Neptune year (~164.8 Earth years).</p>
   </header>
 
@@ -70,11 +70,11 @@
     <h2 style="font-size:1.05rem;margin:8px 0 4px">Watch full cycle</h2>
     <p class="hint">Seamless loop from the same orbit integers as the live sim (textured Lambert pass). Not Imagine.</p>
     <video class="cycle" controls loop muted playsinline
-      src="../assets/solar/full_cycle.mp4?v=sun3">
-      <source src="../assets/solar/full_cycle.webm?v=sun3" type="video/webm" />
-      <source src="../assets/solar/full_cycle.mp4?v=sun3" type="video/mp4" />
+      src="../assets/solar/full_cycle.mp4?v=sun4">
+      <source src="../assets/solar/full_cycle.webm?v=sun4" type="video/webm" />
+      <source src="../assets/solar/full_cycle.mp4?v=sun4" type="video/mp4" />
     </video>
-    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=sun3" download style="color:#8ab4ff">Download MP4</a></p>
+    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=sun4" download style="color:#8ab4ff">Download MP4</a></p>
   </div>
 
   <section class="lesson" id="lesson">
@@ -104,7 +104,7 @@
     import * as THREE from "three";
 
     const TEX = "../assets/solar/textures/";
-    const V = "?v=sun3";
+    const V = "?v=sun4";
     const AR_DEFAULT_SCALE = 2.6;
     const PREVIEW_SCALE = 1;
 
@@ -141,7 +141,7 @@
     renderer.xr.enabled = true;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.22;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x050814);
@@ -179,35 +179,40 @@
     const orbitGuides = [];
 
     async function build() {
-      // sun3: procedural photosphere — NO equirect UV map (device still striped on sun2)
+      // sun4: richer procedural photosphere + soft additive corona (no equirect UV)
       const sunUniforms = {
         uTime: { value: 0 },
-        uColorCore: { value: new THREE.Color(0xfff5c8) },
-        uColorMid: { value: new THREE.Color(0xffb020) },
-        uColorEdge: { value: new THREE.Color(0xff6a00) },
+        uColorCore: { value: new THREE.Color(0xfff8dc) },
+        uColorHot: { value: new THREE.Color(0xffe08a) },
+        uColorMid: { value: new THREE.Color(0xff9a1a) },
+        uColorCool: { value: new THREE.Color(0xc44a00) },
       };
       const sunMat = new THREE.ShaderMaterial({
         uniforms: sunUniforms,
         toneMapped: false,
         vertexShader: `
           varying vec3 vPos;
-          varying vec3 vNormal;
+          varying vec3 vWorldNormal;
+          varying vec3 vViewDir;
           void main() {
             vPos = position;
-            vNormal = normalize(normalMatrix * normal);
+            vec4 worldPos = modelMatrix * vec4(position, 1.0);
+            vWorldNormal = normalize(mat3(modelMatrix) * normal);
+            vViewDir = normalize(cameraPosition - worldPos.xyz);
             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
           }
         `,
         fragmentShader: `
           uniform float uTime;
           uniform vec3 uColorCore;
+          uniform vec3 uColorHot;
           uniform vec3 uColorMid;
-          uniform vec3 uColorEdge;
+          uniform vec3 uColorCool;
           varying vec3 vPos;
-          varying vec3 vNormal;
-          // Simplex-ish value noise on object-space position (no UVs → no equirect seam/stripes)
+          varying vec3 vWorldNormal;
+          varying vec3 vViewDir;
           float hash(vec3 p) {
-            p = fract(p * 0.3183099 + vec3(0.1, 0.2, 0.3));
+            p = fract(p * 0.3183099 + vec3(0.11, 0.17, 0.23));
             p *= 17.0;
             return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
           }
@@ -216,46 +221,52 @@
             vec3 f = fract(x);
             f = f * f * (3.0 - 2.0 * f);
             return mix(
-              mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
-                  mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
-              mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
-                  mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y),
-              f.z
-            );
+              mix(mix(hash(i+vec3(0,0,0)), hash(i+vec3(1,0,0)), f.x),
+                  mix(hash(i+vec3(0,1,0)), hash(i+vec3(1,1,0)), f.x), f.y),
+              mix(mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x),
+                  mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x), f.y),
+              f.z);
           }
           float fbm(vec3 p) {
             float a = 0.0;
             float w = 0.5;
-            for (int i = 0; i < 5; i++) {
+            for (int i = 0; i < 6; i++) {
               a += w * noise(p);
-              p = p * 2.03 + 17.1;
+              p = p * 2.11 + vec3(13.7, 7.1, 19.3);
               w *= 0.5;
             }
             return a;
           }
           void main() {
             vec3 n = normalize(vPos);
-            // Slow churn in object space — whole sphere mottled, no longitude seam
-            float t = uTime * 0.15;
-            float m = fbm(n * 3.5 + vec3(t, t * 0.7, -t * 0.4));
-            float m2 = fbm(n * 7.0 - vec3(t * 0.5, -t, t * 0.3));
-            float mottled = clamp(m * 0.75 + m2 * 0.35, 0.0, 1.0);
-            vec3 col = mix(uColorEdge, uColorMid, mottled);
-            col = mix(col, uColorCore, pow(mottled, 2.2) * 0.85);
-            // Soft limb brightening
-            float fres = pow(1.0 - max(dot(normalize(vNormal), vec3(0.0, 0.0, 1.0)), 0.0), 2.0);
-            col += uColorCore * fres * 0.25;
+            float t = uTime * 0.12;
+            float g1 = fbm(n * 4.2 + vec3(t, t*0.6, -t*0.35));
+            float g2 = fbm(n * 9.5 - vec3(t*0.4, -t*0.9, t*0.25));
+            float g3 = fbm(n * 18.0 + vec3(-t*0.7, t*0.3, t*0.5));
+            float gran = clamp(g1 * 0.55 + g2 * 0.30 + g3 * 0.20, 0.0, 1.0);
+            float active = smoothstep(0.72, 0.92, fbm(n * 2.4 + vec3(t*0.2, 4.0, -t*0.15)));
+            float cool = smoothstep(0.65, 0.88, fbm(n * 3.1 - vec3(2.0, t*0.25, 5.0)));
+            vec3 col = mix(uColorCool, uColorMid, gran);
+            col = mix(col, uColorHot, pow(gran, 1.6) * 0.65);
+            col = mix(col, uColorCore, pow(gran, 2.8) * 0.45 + active * 0.35);
+            col = mix(col, uColorCool * 0.75, cool * 0.28);
+            float ndv = max(dot(normalize(vWorldNormal), normalize(vViewDir)), 0.0);
+            float limb = pow(ndv, 0.55);
+            col *= mix(0.42, 1.12, limb);
+            col += uColorCore * active * limb * 0.2;
             gl_FragColor = vec4(col, 1.0);
           }
         `,
       });
-      const sun = new THREE.Mesh(new THREE.SphereGeometry(0.085, 64, 64), sunMat);
+      const sun = new THREE.Mesh(new THREE.SphereGeometry(0.088, 64, 64), sunMat);
       root.add(sun);
       const coronaMats = [];
       const coronaLayers = [
-        { scale: 1.18, color: 0xffe8a0, opacity: 0.45 },
-        { scale: 1.45, color: 0xffb040, opacity: 0.22 },
-        { scale: 1.9,  color: 0xff8020, opacity: 0.10 },
+        { scale: 1.08, color: 0xfff2c4, opacity: 0.38 },
+        { scale: 1.22, color: 0xffd080, opacity: 0.22 },
+        { scale: 1.42, color: 0xffa040, opacity: 0.12 },
+        { scale: 1.70, color: 0xff7818, opacity: 0.06 },
+        { scale: 2.10, color: 0xff5508, opacity: 0.03 },
       ];
       for (const layer of coronaLayers) {
         const mat = new THREE.MeshBasicMaterial({
@@ -268,7 +279,7 @@
           toneMapped: false,
         });
         coronaMats.push(mat);
-        root.add(new THREE.Mesh(new THREE.SphereGeometry(0.085 * layer.scale, 32, 32), mat));
+        root.add(new THREE.Mesh(new THREE.SphereGeometry(0.088 * layer.scale, 32, 32), mat));
       }
       window.__solarSun = { sun, sunMat, coronaMats, sunUniforms };
 
@@ -360,14 +371,14 @@
       ambient.intensity = 0.35;
       hemi.intensity = 0.45;
       sunLight.intensity = 3.6;
-      renderer.toneMappingExposure = 1.15;
+      renderer.toneMappingExposure = 1.22;
       for (const g of orbitGuides) g.material.opacity = 0.45;
     }
     function setArLights() {
       ambient.intensity = 0.75;
       hemi.intensity = 0.7;
       sunLight.intensity = 5.2;
-      renderer.toneMappingExposure = 1.35;
+      renderer.toneMappingExposure = 1.4;
       for (const g of orbitGuides) g.material.opacity = 0.7;
     }
 
