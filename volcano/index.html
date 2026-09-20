@@ -61,6 +61,16 @@
     .replay { background: var(--ink); color: #fff; }
     .ar-cta { background: var(--ar); color: #fff; font-weight: 700; flex-basis: 100%; }
     .ar-cta:disabled { opacity: .55; }
+    .rec { background: #c62828; color: #fff; }
+    .rec.on { background: #8e0000; animation: recPulse 1.2s ease infinite; }
+    @keyframes recPulse { 50% { opacity: 0.75; } }
+    #recStatus { min-height: 1.2em; }
+    #recStatus.err { color: #a33; opacity: 1; }
+    #recPlayerWrap { margin: 8px 0 12px; }
+    #recPlayerWrap[hidden] { display: none; }
+    .rec-player { width: 100%; border-radius: 12px; background: #000; margin-top: 8px; }
+    .rec-copy { flex-basis: 100%; min-width: 100%; background: #fff; color: var(--ink); border: 1px solid var(--line); }
+    #previewRecCanvas { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
     .why, .quiz {
       background: #fff; border: 1px solid var(--line); border-radius: 14px;
       padding: 14px 14px 12px; margin: 10px 0; display: none;
@@ -97,6 +107,8 @@
     #arHud .soda { background: #4a7c59; color: #fff; }
     #arHud .vinegar { background: #c45c26; color: #fff; }
     #arHud .exit { background: #fff; color: #111; }
+    #arHud .rec { background: #c62828; color: #fff; }
+    #arHud .rec.on { background: #8e0000; }
   </style>
 </head>
 <body>
@@ -109,13 +121,14 @@
   <p class="hint" id="arHint">
     Tap <strong>Place on table (AR)</strong> — stays in this page when WebXR is available.
     Place the craft volcano + cups, pour baking soda, then pour vinegar (foam). No 3D mesh.
+    Use <strong>Record</strong> to save a clip of the plate (preview or AR).
   </p>
 
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
     <div class="overlay">
-      <img id="plateStill" alt="Craft volcano and cups on the table" src="../assets/keyed/classic3/place_frame0.png?v=classic3">
-      <video id="clip" playsinline muted poster="../assets/keyed/classic3/place_frame0.png?v=classic3"></video>
+      <img id="plateStill" alt="Craft volcano and cups on the table" src="../assets/keyed/classic3/place_frame0.png?v=classic3-rec1">
+      <video id="clip" playsinline muted poster="../assets/keyed/classic3/place_frame0.png?v=classic3-rec1"></video>
     </div>
   </div>
 
@@ -124,7 +137,11 @@
     <button class="soda" id="sodaBtn" type="button">Pour baking soda</button>
     <button class="vinegar" id="vinegarBtn" type="button">Pour vinegar</button>
     <button class="replay" id="replayBtn" type="button">Replay</button>
+    <button class="rec" id="recBtn" type="button">Record</button>
   </div>
+  <p class="hint" id="recStatus"></p>
+  <div id="recPlayerWrap" hidden></div>
+  <canvas id="previewRecCanvas" aria-hidden="true"></canvas>
 
   <section class="why" id="why">
     <h2>Why did it foam?</h2>
@@ -159,11 +176,13 @@
     </div>
     <div class="row">
       <button class="exit" id="arExitBtn" type="button">Exit AR</button>
+      <button class="rec" id="arRecBtn" type="button">Record</button>
     </div>
   </div>
 
   <script type="module">
     import * as THREE from "three";
+    import { pickRecorderMime, recordingFilename, saveRecordingBlob } from "../assets/record-save.js?v=classic3-rec1";
 
     const plateStill = document.getElementById("plateStill");
     const video = document.getElementById("clip");
@@ -181,8 +200,14 @@
     const arSodaBtn = document.getElementById("arSodaBtn");
     const arVinegarBtn = document.getElementById("arVinegarBtn");
     const arExitBtn = document.getElementById("arExitBtn");
+    const recBtn = document.getElementById("recBtn");
+    const arRecBtn = document.getElementById("arRecBtn");
+    const recStatus = document.getElementById("recStatus");
+    const recPlayerWrap = document.getElementById("recPlayerWrap");
+    const previewRecCanvas = document.getElementById("previewRecCanvas");
+    const stage = document.getElementById("stage");
 
-    const V = "classic3";
+    const V = "classic3-rec1";
     const PLACE_STILL = `../assets/keyed/classic3/place_frame0.png?v=${V}`;
     const SODA_WEBM = `../assets/keyed/classic3/soda.webm?v=${V}`;
     const SODA_END = `../assets/keyed/classic3/soda_end.png?v=${V}`;
@@ -355,8 +380,190 @@
       }
     });
 
+    function setRecStatus(msg, isErr) {
+      recStatus.textContent = msg;
+      recStatus.classList.toggle("err", !!isErr);
+    }
+
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let recording = false;
+    let recordBusy = false;
+    let recordMime = "";
+    let recordStream = null;
+    let previewDrawId = 0;
+    let renderer = null;
+    const previewRecCtx = previewRecCanvas.getContext("2d");
+
+    function syncRecButtons() {
+      for (const b of [recBtn, arRecBtn]) {
+        if (!b) continue;
+        b.classList.toggle("on", recording);
+        b.textContent = recording ? "Stop" : "Record";
+      }
+    }
+
+    function isArLive() {
+      return !!(renderer && arCanvas && arCanvas.style.display !== "none");
+    }
+
+    function sizePreviewRecCanvas() {
+      const w = stage.clientWidth || 360;
+      const h = stage.clientHeight || 280;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      previewRecCanvas.width = Math.max(2, Math.floor(w * dpr));
+      previewRecCanvas.height = Math.max(2, Math.floor(h * dpr));
+    }
+
+    function drawContained(ctx, src, cw, ch) {
+      const sw = src.videoWidth || src.naturalWidth || src.width || 0;
+      const sh = src.videoHeight || src.naturalHeight || src.height || 0;
+      if (!sw || !sh) return;
+      const maxW = cw * 0.92;
+      const maxH = ch * 0.92;
+      const scale = Math.min(maxW / sw, maxH / sh);
+      const dw = sw * scale;
+      const dh = sh * scale;
+      ctx.drawImage(src, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+    }
+
+    function drawPreviewFrame() {
+      const ctx = previewRecCtx;
+      const w = previewRecCanvas.width;
+      const h = previewRecCanvas.height;
+      if (!ctx || !w || !h) return;
+      const g = ctx.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, "#cfe7ff");
+      g.addColorStop(0.55, "#e9d7b8");
+      g.addColorStop(0.56, "#c4a574");
+      g.addColorStop(1, "#8a6a3d");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+      const src = video.classList.contains("use-video") ? video : plateStill;
+      drawContained(ctx, src, w, h);
+    }
+
+    function startPreviewDraw() {
+      sizePreviewRecCanvas();
+      const tick = () => {
+        drawPreviewFrame();
+        previewDrawId = requestAnimationFrame(tick);
+      };
+      previewDrawId = requestAnimationFrame(tick);
+    }
+
+    function stopPreviewDraw() {
+      if (previewDrawId) cancelAnimationFrame(previewDrawId);
+      previewDrawId = 0;
+    }
+
+    function stopRecordTracks() {
+      if (!recordStream) return;
+      recordStream.getTracks().forEach((t) => t.stop());
+      recordStream = null;
+    }
+
+    function collectRecording() {
+      return new Promise((resolve) => {
+        const rec = mediaRecorder;
+        if (!rec) {
+          resolve(new Blob());
+          return;
+        }
+        rec.onstop = () => {
+          resolve(new Blob(recordedChunks, { type: recordMime || "video/webm" }));
+        };
+        try {
+          rec.stop();
+        } catch (_) {
+          resolve(new Blob(recordedChunks, { type: recordMime || "video/webm" }));
+        }
+      });
+    }
+
+    async function finishRecording() {
+      if (!mediaRecorder && !recording) return;
+      const blob = await collectRecording();
+      recording = false;
+      syncRecButtons();
+      stopPreviewDraw();
+      stopRecordTracks();
+      mediaRecorder = null;
+      await saveRecordingBlob(blob, {
+        filename: recordingFilename("livinglab-volcano-", recordMime),
+        title: "Living Lab Volcano",
+        playerHost: recPlayerWrap,
+        setStatus: setRecStatus,
+      });
+    }
+
+    async function toggleRecord() {
+      if (recordBusy) return;
+      recordBusy = true;
+      try {
+        if (recording) {
+          await finishRecording();
+          return;
+        }
+        if (!window.MediaRecorder) {
+          setRecStatus("Recording not supported in this browser — try Chrome.", true);
+          return;
+        }
+        const mime = pickRecorderMime();
+        if (!mime) {
+          setRecStatus("No recordable video format on this device.", true);
+          return;
+        }
+        let canvas;
+        if (isArLive()) {
+          canvas = arCanvas;
+        } else {
+          startPreviewDraw();
+          drawPreviewFrame();
+          canvas = previewRecCanvas;
+        }
+        if (typeof canvas.captureStream !== "function") {
+          stopPreviewDraw();
+          setRecStatus("This browser cannot capture the canvas for Record.", true);
+          return;
+        }
+        recordStream = canvas.captureStream(30);
+        recordedChunks = [];
+        recordMime = mime;
+        try {
+          mediaRecorder = new MediaRecorder(recordStream, { mimeType: mime, videoBitsPerSecond: 4000000 });
+        } catch (_) {
+          mediaRecorder = new MediaRecorder(recordStream);
+          recordMime = mediaRecorder.mimeType || mime;
+        }
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size) recordedChunks.push(e.data);
+        };
+        mediaRecorder.onerror = () => {
+          recording = false;
+          syncRecButtons();
+          stopPreviewDraw();
+          stopRecordTracks();
+          setRecStatus("Record failed.", true);
+        };
+        mediaRecorder.start(200);
+        recording = true;
+        syncRecButtons();
+        setRecStatus("Recording… tap Stop when done.");
+      } catch (e) {
+        stopPreviewDraw();
+        stopRecordTracks();
+        setRecStatus("Could not start recording: " + (e.message || e), true);
+      } finally {
+        recordBusy = false;
+      }
+    }
+
+    if (recBtn) recBtn.addEventListener("click", () => { toggleRecord(); });
+    if (arRecBtn) arRecBtn.addEventListener("click", () => { toggleRecord(); });
+
     // ——— WebXR AR (classic1 plate: MeshBasic + VideoTexture / PNG, LOOK_DOWN 30°) ———
-    let renderer, scene, camera, reticle, volcanoRoot, xrHitTestSource, xrRefSpace;
+    let scene, camera, reticle, volcanoRoot, xrHitTestSource, xrRefSpace;
     let arVideo, arVideoTex, arVideoMesh, arPlateMat;
     let arPlaceTex = null;
     let arSodaEndTex = null;
@@ -548,7 +755,7 @@
       syncArButtons(arStep);
       setMsg("Move phone slowly to find the table surface, then tap Place.");
 
-      renderer = new THREE.WebGLRenderer({ canvas: arCanvas, alpha: true, antialias: true });
+      renderer = new THREE.WebGLRenderer({ canvas: arCanvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
       renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.xr.enabled = true;
@@ -630,8 +837,9 @@
       renderer.render(scene, camera);
     }
 
-    function onAREnd() {
-      renderer.setAnimationLoop(null);
+    async function onAREnd() {
+      if (recording) await finishRecording();
+      if (renderer) renderer.setAnimationLoop(null);
       if (xrHitTestSource) { xrHitTestSource.cancel(); xrHitTestSource = null; }
       arCanvas.style.display = "none";
       arHud.classList.remove("show");
