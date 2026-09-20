@@ -70,11 +70,11 @@
     <h2 style="font-size:1.05rem;margin:8px 0 4px">Watch full cycle</h2>
     <p class="hint">Seamless loop from the same orbit integers as the live sim (textured Lambert pass). Not Imagine.</p>
     <video class="cycle" controls loop muted playsinline
-      src="../assets/solar/full_cycle.mp4?v=sun1">
-      <source src="../assets/solar/full_cycle.webm?v=sun1" type="video/webm" />
-      <source src="../assets/solar/full_cycle.mp4?v=sun1" type="video/mp4" />
+      src="../assets/solar/full_cycle.mp4?v=sun2">
+      <source src="../assets/solar/full_cycle.webm?v=sun2" type="video/webm" />
+      <source src="../assets/solar/full_cycle.mp4?v=sun2" type="video/mp4" />
     </video>
-    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=sun1" download style="color:#8ab4ff">Download MP4</a></p>
+    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=sun2" download style="color:#8ab4ff">Download MP4</a></p>
   </div>
 
   <section class="lesson" id="lesson">
@@ -104,7 +104,7 @@
     import * as THREE from "three";
 
     const TEX = "../assets/solar/textures/";
-    const V = "?v=sun1";
+    const V = "?v=sun2";
     const AR_DEFAULT_SCALE = 2.6;
     const PREVIEW_SCALE = 1;
 
@@ -181,6 +181,11 @@
     async function build() {
       const sunMap = await loadMap("sun.jpg");
       // Emissive photosphere (no bloom — keeps mobile AR smooth)
+      // Same texture for map + emissiveMap; NO uv offset scroll (non-seamless equirect stripes)
+      sunMap.wrapS = sunMap.wrapT = THREE.ClampToEdgeWrapping;
+      sunMap.offset.set(0, 0);
+      sunMap.repeat.set(1, 1);
+      sunMap.needsUpdate = true;
       const sunMat = new THREE.MeshStandardMaterial({
         map: sunMap,
         emissiveMap: sunMap,
@@ -327,11 +332,8 @@
         b.orbit.rotation.y = 2 * Math.PI * b.orbits * u;
         b.mesh.rotation.y = 2 * Math.PI * b.spins * u;
       }
-      // Subtle sun surface motion (UV scroll) — not a static sticker
-      if (window.__solarSun && window.__solarSun.sunMat.map) {
-        const s = window.__solarSun.sunMat;
-        s.map.offset.x = (s.map.offset.x + dt * 0.012) % 1;
-        if (s.emissiveMap) s.emissiveMap.offset.x = s.map.offset.x;
+      // Surface motion = mesh spin only (UV offset + ClampToEdge caused half-sphere stripes)
+      if (window.__solarSun) {
         window.__solarSun.sun.rotation.y += dt * 0.08;
       }
       if (!renderer.xr.isPresenting) root.rotation.y += dt * 0.035;
