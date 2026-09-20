@@ -107,14 +107,14 @@
 
   <p class="hint" id="arHint">
     Tap <strong>Place on table (AR)</strong> — stays in this page when WebXR is available.
-    Place the ready bowl + cups, then Erupt: soda pour → vinegar → foam (loops). No 3D mesh.
+    Place the bowl, then Erupt for the foam eruption (loops). No 3D mesh.
   </p>
 
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
     <model-viewer
       id="mv"
-      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=cups2"
+      src="https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=foam3"
       alt="Bowl-scale baking soda volcano"
       camera-controls
       touch-action="pan-y"
@@ -126,7 +126,7 @@
       reveal="auto"
     ></model-viewer>
     <div class="overlay">
-      <video id="clip" playsinline muted loop poster="assets/keyed/eruption_frame0.png?v=cups2"></video>
+      <video id="clip" playsinline muted loop poster="assets/keyed/eruption_frame0.png?v=foam3"></video>
       <img id="clipWebp" alt="Volcano erupting foam">
     </div>
   </div>
@@ -190,11 +190,11 @@
     const arEruptBtn = document.getElementById("arEruptBtn");
     const arExitBtn = document.getElementById("arExitBtn");
 
-    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=cups2";
-    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=cups2";
-    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=cups2";
-    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=cups2";
-    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=cups2";
+    const WEBM = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=foam3";
+    const WEBP = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webp?v=foam3";
+    const MESH = "https://bryanralston.github.io/livinglab-volcano/assets/volcano-mesh.glb?v=foam3";
+    const GS_MP4 = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption.webm?v=foam3";
+    const STILL = "https://bryanralston.github.io/livinglab-volcano/assets/keyed/eruption_frame0.png?v=foam3";
 
     let mode = "video";
     let lessonTimer = 0;
@@ -408,7 +408,7 @@
         reticle.visible = false;
         arPlaceBtn.hidden = true;
         arEruptBtn.hidden = false;
-        setMsg("Placed — ready bowl + cups on the table. Tap Erupt foam for soda pour → vinegar → foam.");
+        setMsg("Placed — bowl on the table. Tap Erupt foam to bring it alive.");
       };
 
             arEruptBtn.onclick = async () => {
@@ -421,7 +421,7 @@
         arVideo.loop = true;
         arVideo.currentTime = 0;
         try { await arVideo.play(); } catch (e) { console.warn(e); }
-        setMsg("Pouring soda → vinegar → foam (loops). Exit AR for Why + quiz.");
+        setMsg("Foam erupting (loops). Exit AR for Why + quiz.");
         lessonTimer = setTimeout(revealLesson, 20000);
       };
 arExitBtn.onclick = () => session.end();
