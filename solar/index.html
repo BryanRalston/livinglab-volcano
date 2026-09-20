@@ -11,11 +11,11 @@
     :root { --bg:#070b16; --card:#12182a; --text:#eaf0ff; --muted:#9aa8c7; --accent:#5b8cff; }
     * { box-sizing: border-box; }
     body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
-    header, .panel, .lesson, .videoWrap { max-width: 560px; margin: 0 auto; padding: 16px 16px 0; }
+    header, .panel, .lesson, .videoWrap { max-width: 560px; margin: 0 auto; padding: 10px 14px 0; }
     .back a { color:#8ab4ff; text-decoration:none; font-size:0.9rem; }
-    h1 { font-size:1.35rem; margin:8px 0 4px; }
+    h1 { font-size:1.2rem; margin:4px 0 2px; }
     .sub, .note, .hint { color:var(--muted); font-size:0.92rem; line-height:1.45; }
-    .stage { position:relative; height: min(52vh, 440px); margin: 12px 16px; border-radius: 16px; overflow:hidden; background:#000; border:1px solid #1c2438; touch-action: none; }
+    .stage { position:relative; height: min(36vh, 280px); margin: 8px 12px 0; border-radius: 14px; overflow:hidden; background:#000; border:1px solid #1c2438; touch-action: none; flex-shrink: 0; }
     #view { width:100%; height:100%; display:block; }
     .row { display:flex; gap:8px; flex-wrap:wrap; margin: 10px 0 0; }
     button { border:0; border-radius:999px; padding:10px 14px; font-weight:650; font-size:0.95rem; }
@@ -41,6 +41,24 @@
       color:#fff; pointer-events: auto;
     }
     #arBar .row { justify-content:center; }
+
+    /* Mobile-first: AR controls always visible under short stage */
+    .panel.controls {
+      position: sticky; top: 0; z-index: 5;
+      background: linear-gradient(var(--bg) 70%, rgba(7,11,22,0.92));
+      padding-bottom: 10px;
+      border-bottom: 1px solid #1c2438;
+    }
+    @media (max-height: 740px) {
+      .stage { height: min(32vh, 240px); }
+      header .note { display: none; }
+      header .sub { font-size: 0.85rem; margin: 0; }
+    }
+    @media (max-height: 640px) {
+      .stage { height: min(28vh, 200px); }
+      header .sub { display: none; }
+    }
+
     #status { font-size:0.85rem; color:var(--muted); min-height:1.2em; }
     #status.err { color:#ff8a8a; }
   </style>
@@ -55,14 +73,14 @@
 
   <div class="stage" id="stage"><canvas id="view"></canvas></div>
 
-  <div class="panel">
-    <p class="hint">Tap <strong>Enter AR</strong> (Samsung Chrome / Android WebXR). In AR, pinch with two fingers to scale — system sits about a meter in front of you.</p>
-    <label class="hint" for="speed">Live speed: <span id="speedVal">30</span>× (Earth days / real second)</label>
-    <input id="speed" type="range" min="1" max="120" value="30" />
-    <div class="row">
+  <div class="panel controls">
+    <div class="row" style="margin-top:8px">
       <button class="ar" id="arBtn" type="button">Enter AR</button>
       <button class="exit" id="previewBtn" type="button">Reset preview</button>
     </div>
+    <p class="hint" style="margin:6px 0 0">Samsung Chrome · pinch in AR to scale (~1 m ahead)</p>
+    <label class="hint" for="speed">Speed: <span id="speedVal">30</span>×</label>
+    <input id="speed" type="range" min="1" max="120" value="30" />
     <p id="status">Loading planet textures…</p>
   </div>
 
@@ -70,11 +88,11 @@
     <h2 style="font-size:1.05rem;margin:8px 0 4px">Watch full cycle</h2>
     <p class="hint">Seamless loop from the same orbit integers as the live sim (textured Lambert pass). Not Imagine.</p>
     <video class="cycle" controls loop muted playsinline
-      src="../assets/solar/full_cycle.mp4?v=photo2">
-      <source src="../assets/solar/full_cycle.webm?v=photo2" type="video/webm" />
-      <source src="../assets/solar/full_cycle.mp4?v=photo2" type="video/mp4" />
+      src="../assets/solar/full_cycle.mp4?v=photo3">
+      <source src="../assets/solar/full_cycle.webm?v=photo3" type="video/webm" />
+      <source src="../assets/solar/full_cycle.mp4?v=photo3" type="video/mp4" />
     </video>
-    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=photo2" download style="color:#8ab4ff">Download MP4</a></p>
+    <p class="hint"><a href="../assets/solar/full_cycle.mp4?v=photo3" download style="color:#8ab4ff">Download MP4</a></p>
   </div>
 
   <section class="lesson" id="lesson">
@@ -104,7 +122,7 @@
     import * as THREE from "three";
 
     const TEX = "../assets/solar/textures/";
-    const V = "?v=photo2";
+    const V = "?v=photo3";
     const AR_DEFAULT_SCALE = 2.6;
     const PREVIEW_SCALE = 1;
 
