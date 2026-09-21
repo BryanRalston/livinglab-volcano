@@ -1321,9 +1321,12 @@
       mockVideo.defaultMuted = true;
       mockVideo.playsInline = true;
       mockVideo.src = mockSrc(mockClipId);
-      mockVideo.addEventListener("loadedmetadata", () => {
-        if (gen !== mockLoadGen) return;
-        try { mockVideo.currentTime = 0; } catch (_) {}
+      // Do not assign currentTime here. A seek during loadedmetadata leaves
+      // Chrome's seekable range at 0, so the scrub slider cannot move.
+      let started = false;
+      const startClip = () => {
+        if (started || gen !== mockLoadGen) return;
+        started = true;
         if (mockFrozen) {
           mockVideo.pause();
           syncMockTransportUi();
@@ -1332,7 +1335,9 @@
         const playing = mockVideo.play();
         if (playing && playing.catch) playing.catch(() => { syncMockTransportUi(); });
         syncMockTransportUi();
-      }, { once: true });
+      };
+      mockVideo.addEventListener("loadeddata", startClip, { once: true });
+      if (mockVideo.readyState >= 2) startClip();
       syncMockTransportUi();
     }
 
@@ -1411,15 +1416,24 @@
       syncMockTransportUi();
     });
 
+    function seekMockClip(ratio) {
+      const dur = mockVideo.duration;
+      if (!Number.isFinite(dur) || dur <= 0) return;
+      const end = mockVideo.seekable.length ? mockVideo.seekable.end(0) : 0;
+      if (end <= 0) return;
+      const t = Math.min(Math.max(0, ratio) * dur, Math.max(0, end - 0.04));
+      try { mockVideo.currentTime = t; } catch (_) {}
+      if (mockFrozen || mockVideo.paused) mockVideo.pause();
+    }
+
     mockScrub.addEventListener("pointerdown", () => { mockScrubbing = true; });
     mockScrub.addEventListener("pointerup", () => { mockScrubbing = false; });
     mockScrub.addEventListener("pointercancel", () => { mockScrubbing = false; });
     mockScrub.addEventListener("input", () => {
-      const dur = mockVideo.duration;
-      if (!Number.isFinite(dur) || dur <= 0) return;
-      try { mockVideo.currentTime = (Number(mockScrub.value) / 1000) * dur; } catch (_) {}
-      if (mockFrozen) mockVideo.pause();
+      mockScrubbing = true;
+      seekMockClip(Number(mockScrub.value) / 1000);
     });
+    mockScrub.addEventListener("change", () => { mockScrubbing = false; });
 
     mockVideo.addEventListener("timeupdate", () => {
       if (mockScrubbing) return;
