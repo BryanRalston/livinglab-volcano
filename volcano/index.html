@@ -123,15 +123,16 @@
   <p class="hint" id="arHint">
     Tap <strong>Place on table (AR)</strong> — stays in this page when WebXR is available.
     Place the craft volcano + cups, pour baking soda, then pour vinegar (foam). No 3D mesh.
-    <strong>Snapshot</strong> shares a PNG of the plate. <strong>Record</strong> during baking soda or vinegar shares that clip.
-    For AR camera passthrough, use Samsung screen recorder and attach it in chat.
+    <strong>Record</strong>, then Stop, encodes a video file of the plate and opens Share/Save.
+    <strong>Snapshot</strong> is an optional PNG. On Android, Record uses the in-page video encoder.
+    Samsung screen recorder still captures AR passthrough if you need the camera itself.
   </p>
 
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
     <div class="overlay">
-      <img id="plateStill" alt="Craft volcano and cups on the table" src="../assets/keyed/classic3/place_frame0.png?v=classic3-rec4">
-      <video id="clip" playsinline muted poster="../assets/keyed/classic3/place_frame0.png?v=classic3-rec4"></video>
+      <img id="plateStill" alt="Craft volcano and cups on the table" src="../assets/keyed/classic3/place_frame0.png?v=classic3-rec5">
+      <video id="clip" playsinline muted poster="../assets/keyed/classic3/place_frame0.png?v=classic3-rec5"></video>
     </div>
   </div>
 
@@ -187,7 +188,8 @@
 
   <script type="module">
     import * as THREE from "three";
-    import { isAndroidUA, pickRecorderMime, recordingFilename, saveRecordingBlob } from "../assets/record-save.js?v=classic3-rec4";
+    import { isAndroidUA, pickRecorderMime, recordingFilename, saveRecordingBlob } from "../assets/record-save.js?v=classic3-rec5";
+    import { evenEncodeSize, startCanvasEncoder, webCodecsPresent } from "../assets/canvas-encode.js?v=classic3-rec5";
 
     const plateStill = document.getElementById("plateStill");
     const video = document.getElementById("clip");
@@ -214,25 +216,12 @@
     const previewRecCanvas = document.getElementById("previewRecCanvas");
     const stage = document.getElementById("stage");
 
-    const V = "classic3-rec4";
+    const V = "classic3-rec5";
     const PLACE_STILL = `../assets/keyed/classic3/place_frame0.png?v=${V}`;
     const SODA_WEBM = `../assets/keyed/classic3/soda.webm?v=${V}`;
     const SODA_END = `../assets/keyed/classic3/soda_end.png?v=${V}`;
     const VINEGAR_WEBM = `../assets/keyed/classic3/vinegar_erupt.webm?v=${V}`;
     const VINEGAR_END = `../assets/keyed/classic3/vinegar_end.png?v=${V}`;
-    const BLOCKED_SNAPSHOT = "Video capture blocked on this phone — shared a snapshot. For motion use Samsung screen recorder and attach in chat.";
-    const stepClipBlobs = { soda: null, vinegar: null };
-
-    function prefetchStepClip(key, url) {
-      fetch(url).then((res) => {
-        if (!res.ok) throw new Error(String(res.status));
-        return res.blob();
-      }).then((blob) => {
-        if (blob && blob.size) stepClipBlobs[key] = blob;
-      }).catch(() => {});
-    }
-    prefetchStepClip("soda", SODA_WEBM);
-    prefetchStepClip("vinegar", VINEGAR_WEBM);
 
     const PAGE = Object.freeze({
       PLACE: "place",
@@ -414,6 +403,8 @@
     let recordStream = null;
     let previewDrawId = 0;
     let renderer = null;
+    let webCodecSession = null;
+    let webCodecRaf = 0;
     const previewRecCtx = previewRecCanvas.getContext("2d");
 
     function syncRecButtons() {
@@ -594,7 +585,7 @@
       return new Blob([bytes], { type: "image/png" });
     }
 
-    async function shareSnapshot(reason) {
+    async function shareSnapshot() {
       const canvas = canvasForSnapshot();
       let blob = null;
       try {
@@ -606,57 +597,142 @@
         setRecStatus("Could not make a snapshot of the plate.", true);
         return { outcome: "empty" };
       }
-      const blocked = reason === "blocked";
       const kb = Math.round(blob.size / 1024) + " KB";
       return saveRecordingBlob(blob, {
         filename: recordingFilename("livinglab-volcano-snapshot-", "image/png"),
         title: "Living Lab Volcano snapshot",
         playerHost: recPlayerWrap,
         setStatus: setRecStatus,
-        sharedStatus: blocked ? BLOCKED_SNAPSHOT : ("Shared snapshot (" + kb + ")."),
-        readyStatus: blocked ? BLOCKED_SNAPSHOT : ("Snapshot ready (" + kb + "). Tap Save file."),
+        sharedStatus: "Shared snapshot (" + kb + ").",
+        readyStatus: "Snapshot ready (" + kb + "). Tap Save file.",
       });
     }
 
-    function stepClipKey() {
-      const step = isArLive() ? arStep : pageStep;
-      if (step === PAGE.VINEGAR || step === AR.VINEGAR) return "vinegar";
-      if (step === PAGE.SODA || step === AR.SODA) return "soda";
-      if (!isArLive() && video.classList.contains("use-video")) {
-        const src = video.currentSrc || video.src || "";
-        if (src.indexOf("vinegar") >= 0) return "vinegar";
-        if (src.indexOf("soda") >= 0) return "soda";
-      }
-      return "";
-    }
-
-    async function shareStepClip(key) {
-      let blob = stepClipBlobs[key];
-      if (!blob || !blob.size) {
-        const url = key === "vinegar" ? VINEGAR_WEBM : SODA_WEBM;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("clip fetch failed");
-        blob = await res.blob();
-        if (!blob || !blob.size) throw new Error("clip empty");
-        stepClipBlobs[key] = blob;
-      }
-      const typed = blob.type === "video/webm" ? blob : new Blob([blob], { type: "video/webm" });
-      const label = key === "vinegar" ? "vinegar" : "soda";
-      const kb = Math.round(typed.size / 1024) + " KB";
-      let sharedStatus = "Shared " + label + " clip (" + kb + ").";
+    function drawWebCodecFrame() {
       if (isArLive()) {
-        sharedStatus += " For the AR camera view, use Samsung screen recorder and attach it in chat.";
+        const ctx = previewRecCtx;
+        const w = previewRecCanvas.width;
+        const h = previewRecCanvas.height;
+        if (!ctx || !w || !h) return false;
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, w, h);
+        const sw = arCanvas.width;
+        const sh = arCanvas.height;
+        if (!sw || !sh) return false;
+        const scale = Math.min(w / sw, h / sh);
+        const dw = sw * scale;
+        const dh = sh * scale;
+        ctx.drawImage(arCanvas, (w - dw) / 2, (h - dh) / 2, dw, dh);
+        return true;
       }
-      return saveRecordingBlob(typed, {
-        filename: recordingFilename("livinglab-volcano-" + label + "-", "video/webm"),
-        title: "Living Lab Volcano " + label,
-        playerHost: recPlayerWrap,
-        setStatus: setRecStatus,
-        sharedStatus: sharedStatus,
-      });
+      drawPreviewFrame();
+      return true;
+    }
+
+    async function startWebCodecRecord() {
+      // Android Record. VideoEncoder reads drawn canvas frames.
+      // MediaRecorder and captureStream are not called.
+      if (!webCodecsPresent()) {
+        setRecStatus("This phone's Chrome has no WebCodecs VideoEncoder, so Record cannot make a video file. MediaRecorder is not used — it saves an empty file on this phone.", true);
+        return;
+      }
+      const cssW = isArLive() ? window.innerWidth : (stage.clientWidth || 360);
+      const cssH = isArLive() ? window.innerHeight : (stage.clientHeight || 280);
+      const size = evenEncodeSize(cssW, cssH, window.devicePixelRatio || 1);
+      previewRecCanvas.width = size.width;
+      previewRecCanvas.height = size.height;
+      if (!drawWebCodecFrame()) {
+        setRecStatus("The plate is not ready to record yet.", true);
+        return;
+      }
+      let session;
+      try {
+        session = await startCanvasEncoder(size.width, size.height);
+      } catch (err) {
+        setRecStatus("Could not start the video encoder: " + (err && err.message ? err.message : err) + " MediaRecorder is not used on this phone.", true);
+        return;
+      }
+      webCodecSession = session;
+      try {
+        session.pushCanvas(previewRecCanvas, true);
+      } catch (err) {
+        session.cancel();
+        webCodecSession = null;
+        setRecStatus("Could not grab a video frame: " + (err && err.message ? err.message : err), true);
+        return;
+      }
+      recording = true;
+      syncRecButtons();
+      setRecStatus("Recording… tap Stop when done.");
+      let lastPush = performance.now();
+      const loop = () => {
+        if (!recording || webCodecSession !== session) return;
+        const failed = session.failed();
+        if (failed) {
+          recording = false;
+          syncRecButtons();
+          if (webCodecRaf) cancelAnimationFrame(webCodecRaf);
+          webCodecRaf = 0;
+          session.cancel();
+          if (webCodecSession === session) webCodecSession = null;
+          setRecStatus("Video encoder stopped: " + (failed.message || failed), true);
+          return;
+        }
+        try {
+          const now = performance.now();
+          if (now - lastPush >= 33) {
+            drawWebCodecFrame();
+            session.pushCanvas(previewRecCanvas, false);
+            lastPush = now;
+          }
+        } catch (err) {
+          recording = false;
+          syncRecButtons();
+          if (webCodecRaf) cancelAnimationFrame(webCodecRaf);
+          webCodecRaf = 0;
+          session.cancel();
+          if (webCodecSession === session) webCodecSession = null;
+          setRecStatus("Video frame failed: " + (err && err.message ? err.message : err), true);
+          return;
+        }
+        webCodecRaf = requestAnimationFrame(loop);
+      };
+      webCodecRaf = requestAnimationFrame(loop);
+    }
+
+    async function stopWebCodecRecord() {
+      if (webCodecRaf) cancelAnimationFrame(webCodecRaf);
+      webCodecRaf = 0;
+      const session = webCodecSession;
+      webCodecSession = null;
+      recording = false;
+      syncRecButtons();
+      if (!session) {
+        setRecStatus("Record stopped before a video file was ready.", true);
+        return;
+      }
+      setRecStatus("Finishing the video…");
+      try {
+        drawWebCodecFrame();
+        session.pushCanvas(previewRecCanvas, false);
+        const result = await session.finish();
+        await saveRecordingBlob(result.blob, {
+          filename: recordingFilename("livinglab-volcano-", result.mime),
+          title: "Living Lab Volcano",
+          playerHost: recPlayerWrap,
+          setStatus: setRecStatus,
+        });
+      } catch (err) {
+        try { session.cancel(); } catch (_) {}
+        setRecStatus("Video encode failed: " + (err && err.message ? err.message : err) + " Nothing was shared.", true);
+      }
     }
 
     async function finishRecording() {
+      if (isAndroidUA()) {
+        await stopWebCodecRecord();
+        return;
+      }
       if (!mediaRecorder && !recording) return;
       const blob = await collectRecording();
       recording = false;
@@ -664,10 +740,6 @@
       stopPreviewDraw();
       stopRecordTracks();
       mediaRecorder = null;
-      if ((!blob || blob.size === 0) && isAndroidUA()) {
-        await shareSnapshot("blocked");
-        return;
-      }
       await saveRecordingBlob(blob, {
         filename: recordingFilename("livinglab-volcano-", recordMime),
         title: "Living Lab Volcano",
@@ -684,19 +756,8 @@
           await finishRecording();
           return;
         }
-        const clipKey = stepClipKey();
-        if (clipKey) {
-          try {
-            await shareStepClip(clipKey);
-          } catch (_) {
-            if (isAndroidUA()) await shareSnapshot("blocked");
-            else setRecStatus("Could not share the pour clip.", true);
-          }
-          return;
-        }
-        // Android canvas.captureStream encodes an empty file. Share a PNG instead.
         if (isAndroidUA()) {
-          await shareSnapshot("blocked");
+          await startWebCodecRecord();
           return;
         }
         if (!window.MediaRecorder) {
@@ -744,10 +805,13 @@
     }
 
     async function onSnapshot() {
-      if (recordBusy) return;
+      if (recordBusy || recording) {
+        if (recording) setRecStatus("Stop the recording before a snapshot.", true);
+        return;
+      }
       recordBusy = true;
       try {
-        await shareSnapshot("button");
+        await shareSnapshot();
       } catch (e) {
         setRecStatus("Could not share the snapshot: " + (e.message || e), true);
       } finally {
