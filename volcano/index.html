@@ -69,7 +69,7 @@
     #recPlayerWrap { margin: 8px 0 12px; }
     #recPlayerWrap[hidden] { display: none; }
     .rec-player { width: 100%; border-radius: 12px; background: #000; margin-top: 8px; }
-    .rec-copy { flex-basis: 100%; min-width: 100%; background: #fff; color: var(--ink); border: 1px solid var(--line); }
+    .rec-save { flex-basis: 100%; min-width: 100%; margin-top: 8px; background: var(--ar); color: #fff; }
     #previewRecCanvas { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
     .why, .quiz {
       background: #fff; border: 1px solid var(--line); border-radius: 14px;
@@ -127,8 +127,8 @@
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
     <div class="overlay">
-      <img id="plateStill" alt="Craft volcano and cups on the table" src="../assets/keyed/classic3/place_frame0.png?v=classic3-rec1">
-      <video id="clip" playsinline muted poster="../assets/keyed/classic3/place_frame0.png?v=classic3-rec1"></video>
+      <img id="plateStill" alt="Craft volcano and cups on the table" src="../assets/keyed/classic3/place_frame0.png?v=classic3-rec2">
+      <video id="clip" playsinline muted poster="../assets/keyed/classic3/place_frame0.png?v=classic3-rec2"></video>
     </div>
   </div>
 
@@ -182,7 +182,7 @@
 
   <script type="module">
     import * as THREE from "three";
-    import { pickRecorderMime, recordingFilename, saveRecordingBlob } from "../assets/record-save.js?v=classic3-rec1";
+    import { pickRecorderMime, recordingFilename, saveRecordingBlob } from "../assets/record-save.js?v=classic3-rec2";
 
     const plateStill = document.getElementById("plateStill");
     const video = document.getElementById("clip");
@@ -207,7 +207,7 @@
     const previewRecCanvas = document.getElementById("previewRecCanvas");
     const stage = document.getElementById("stage");
 
-    const V = "classic3-rec1";
+    const V = "classic3-rec2";
     const PLACE_STILL = `../assets/keyed/classic3/place_frame0.png?v=${V}`;
     const SODA_WEBM = `../assets/keyed/classic3/soda.webm?v=${V}`;
     const SODA_END = `../assets/keyed/classic3/soda_end.png?v=${V}`;

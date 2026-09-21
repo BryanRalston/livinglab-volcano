@@ -1,8 +1,11 @@
 /**
  * Shared MediaRecorder save path for Living Lab.
- * Share-first (keeps the Stop user-gesture), then an on-page player,
- * then <a download> only as a last-ditch desktop fallback.
- * Do not rely on a.download + blob: URLs on Android Chrome.
+ * Stop shares a real File from the user gesture. Android Chrome only
+ * accepts an exact MIME (video/webm or video/mp4) — a codec suffix such as
+ * video/webm;codecs=vp9 is rejected, and the sheet never opens.
+ * If share is unavailable or cancelled, show an on-page player and a
+ * Save file control that writes a named file (File System Access API,
+ * or share again on Android). Do not rely on a.download + blob: URLs there.
  */
 
 export function isAndroidUA(ua) {
@@ -17,7 +20,7 @@ export function isAppleTouchUA(ua) {
 
 export function pickRecorderMime() {
   if (!window.MediaRecorder || typeof MediaRecorder.isTypeSupported !== "function") return "";
-  // Android MediaRecorder mp4 is flaky (empty/broken files look like download fail).
+  // WebM before MP4. Android MediaRecorder mp4 often yields an empty file.
   const types = [
     "video/webm;codecs=vp9",
     "video/webm;codecs=vp8",
@@ -38,6 +41,87 @@ export function recordingFilename(prefix, mime) {
   return prefix + new Date().toISOString().replace(/[:.]/g, "-") + recorderExtension(mime);
 }
 
+/** Exact shareable type. Codec parameters are not in Chrome's permit list. */
+export function shareableFileType(mime) {
+  const raw = (mime || "").toLowerCase();
+  if (raw.indexOf("mp4") >= 0) return "video/mp4";
+  return "video/webm";
+}
+
+export function recordingFile(blob, filename, mime) {
+  const type = shareableFileType(mime || (blob && blob.type));
+  const body = blob && blob.type === type ? blob : new Blob([blob], { type });
+  return new File([body], filename, { type, lastModified: Date.now() });
+}
+
+function kbLabel(blob) {
+  return Math.round(blob.size / 1024) + " KB";
+}
+
+function releasePlayerUrl(playerHost) {
+  if (!playerHost || !playerHost._blobUrl) return;
+  URL.revokeObjectURL(playerHost._blobUrl);
+  playerHost._blobUrl = "";
+}
+
+function clearPlayer(playerHost) {
+  if (!playerHost) return;
+  releasePlayerUrl(playerHost);
+  playerHost.hidden = true;
+  playerHost.innerHTML = "";
+}
+
+/**
+ * @returns {"shared"|"aborted"|"unavailable"|"failed"}
+ */
+async function shareFile(file, title) {
+  if (!navigator.share || !navigator.canShare) return "unavailable";
+  const files = [file];
+  let allowed = false;
+  try {
+    allowed = navigator.canShare({ files });
+  } catch (_) {
+    return "unavailable";
+  }
+  if (!allowed) return "unavailable";
+  try {
+    await navigator.share({ files, title });
+    return "shared";
+  } catch (err) {
+    if (err && err.name === "AbortError") return "aborted";
+    console.warn("share failed", err);
+    return "failed";
+  }
+}
+
+function pickerTypes(type) {
+  if (type === "video/mp4") {
+    return [{ description: "MP4 video", accept: { "video/mp4": [".mp4"] } }];
+  }
+  return [{ description: "WebM video", accept: { "video/webm": [".webm"] } }];
+}
+
+/**
+ * @returns {"saved"|"aborted"|"unavailable"|"failed"}
+ */
+async function saveWithPicker(blob, filename, type) {
+  if (typeof window.showSaveFilePicker !== "function") return "unavailable";
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: filename,
+      types: pickerTypes(type),
+    });
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return "saved";
+  } catch (err) {
+    if (err && err.name === "AbortError") return "aborted";
+    console.warn("showSaveFilePicker failed", err);
+    return "failed";
+  }
+}
+
 function lastDitchDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -49,15 +133,102 @@ function lastDitchDownload(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-function showOnPagePlayer(blob, playerHost, setStatus) {
-  if (!playerHost) {
-    setStatus("Recording ready, but the on-page player is missing.", true);
+function reportSaved(file, blob, setStatus) {
+  setStatus("Saved " + file.name + " (" + kbLabel(blob) + ").");
+}
+
+function reportShared(file, blob, setStatus) {
+  setStatus("Shared " + file.name + " (" + kbLabel(blob) + ").");
+}
+
+/**
+ * Save file click. On Android this must call showSaveFilePicker or
+ * navigator.share in the same turn as the tap — no await before that call.
+ */
+function onSaveFileClick(blob, file, title, setStatus) {
+  const android = isAndroidUA();
+  const canPick = typeof window.showSaveFilePicker === "function";
+
+  if (android && canPick) {
+    saveWithPicker(blob, file.name, file.type).then((result) => {
+      if (result === "saved") {
+        reportSaved(file, blob, setStatus);
+        return;
+      }
+      if (result === "aborted") {
+        setStatus("Save cancelled.");
+        return;
+      }
+      setStatus("Could not write the file. Tap Save file again.", true);
+    });
     return;
   }
-  if (playerHost._blobUrl) {
-    URL.revokeObjectURL(playerHost._blobUrl);
-    playerHost._blobUrl = "";
+
+  if (android) {
+    shareFile(file, title).then((result) => {
+      if (result === "shared") {
+        reportShared(file, blob, setStatus);
+        return;
+      }
+      if (result === "aborted") {
+        setStatus("Save cancelled.");
+        return;
+      }
+      setStatus("Could not save the file. Tap Save file and choose Files, Photos, Drive, or a chat.", true);
+    });
+    return;
   }
+
+  if (canPick) {
+    saveWithPicker(blob, file.name, file.type).then((result) => {
+      if (result === "saved") {
+        reportSaved(file, blob, setStatus);
+        return;
+      }
+      if (result === "aborted") {
+        setStatus("Save cancelled.");
+        return;
+      }
+      lastDitchDownload(blob, file.name);
+      setStatus("Downloading " + file.name + " (" + kbLabel(blob) + ").");
+    });
+    return;
+  }
+
+  let allowed = false;
+  if (navigator.canShare) {
+    try {
+      allowed = navigator.canShare({ files: [file] });
+    } catch (_) {
+      allowed = false;
+    }
+  }
+  if (allowed) {
+    shareFile(file, title).then((result) => {
+      if (result === "shared") {
+        reportShared(file, blob, setStatus);
+        return;
+      }
+      if (result === "aborted") {
+        setStatus("Save cancelled.");
+        return;
+      }
+      lastDitchDownload(blob, file.name);
+      setStatus("Downloading " + file.name + " (" + kbLabel(blob) + ").");
+    });
+    return;
+  }
+
+  lastDitchDownload(blob, file.name);
+  setStatus("Downloading " + file.name + " (" + kbLabel(blob) + ").");
+}
+
+function showOnPagePlayer(blob, file, title, playerHost, setStatus) {
+  if (!playerHost) {
+    setStatus("Recording ready (" + kbLabel(blob) + "). Tap Save file — the player is missing.", true);
+    return;
+  }
+  releasePlayerUrl(playerHost);
   const url = URL.createObjectURL(blob);
   playerHost._blobUrl = url;
   playerHost.hidden = false;
@@ -67,28 +238,26 @@ function showOnPagePlayer(blob, playerHost, setStatus) {
   video.controls = true;
   video.playsInline = true;
   video.setAttribute("playsinline", "");
+  video.controlsList = "nodownload";
+  video.setAttribute("controlsList", "nodownload");
   video.src = url;
   video.className = "rec-player";
 
   const hint = document.createElement("p");
   hint.className = "hint";
-  hint.textContent = "Share/Save from the player";
+  const ext = file.type === "video/mp4" ? ".mp4" : ".webm";
+  hint.textContent = "Tap Save file, then choose Files, Photos, Drive, or a chat. The clip is saved as a named " + ext + ".";
 
-  const copy = document.createElement("button");
-  copy.type = "button";
-  copy.className = "rec-copy";
-  copy.textContent = "Copy link";
-  copy.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(url);
-      setStatus("Copied player link (this page only).");
-    } catch (_) {
-      setStatus("Could not copy link.", true);
-    }
+  const save = document.createElement("button");
+  save.type = "button";
+  save.className = "rec-save";
+  save.textContent = "Save file";
+  save.addEventListener("click", () => {
+    onSaveFileClick(blob, file, title, setStatus);
   });
 
-  playerHost.append(video, hint, copy);
-  setStatus("Recording ready (" + Math.round(blob.size / 1024) + " KB). Share/Save from the player.");
+  playerHost.append(video, hint, save);
+  setStatus("Recording ready (" + kbLabel(blob) + "). Tap Save file.");
 }
 
 /**
@@ -103,31 +272,22 @@ export async function saveRecordingBlob(blob, opts) {
   const setStatus = opts.setStatus;
 
   if (!blob || blob.size === 0) {
+    clearPlayer(playerHost);
     setStatus("Recording was empty — nothing saved.", true);
     return { outcome: "empty" };
   }
 
-  const type = blob.type || "video/webm";
-  const file = new File([blob], filename, { type });
-  const files = [file];
-
-  try {
-    if (navigator.canShare && navigator.canShare({ files })) {
-      await navigator.share({ files, title });
-      setStatus("Shared recording (" + Math.round(blob.size / 1024) + " KB).");
-      return { outcome: "shared" };
-    }
-  } catch (err) {
-    if (!err || err.name !== "AbortError") {
-      console.warn("share failed", err);
-    }
+  const file = recordingFile(blob, filename, blob.type);
+  const shared = await shareFile(file, title);
+  if (shared === "shared") {
+    clearPlayer(playerHost);
+    setStatus("Shared recording (" + kbLabel(blob) + ").");
+    return { outcome: "shared" };
   }
 
-  showOnPagePlayer(blob, playerHost, setStatus);
-
-  if (!isAndroidUA() && !isAppleTouchUA()) {
-    lastDitchDownload(blob, filename);
+  showOnPagePlayer(blob, file, title, playerHost, setStatus);
+  if (shared === "aborted") {
+    setStatus("Share cancelled. Recording ready (" + kbLabel(blob) + "). Tap Save file.");
   }
-
   return { outcome: "player" };
 }
