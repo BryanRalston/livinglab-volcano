@@ -42,7 +42,9 @@ export function pickRecorderMime() {
 }
 
 export function recorderExtension(mime) {
-  return (mime || "").indexOf("mp4") >= 0 ? ".mp4" : ".webm";
+  const raw = (mime || "").toLowerCase();
+  if (raw.indexOf("png") >= 0 || raw.indexOf("image/") === 0) return ".png";
+  return raw.indexOf("mp4") >= 0 ? ".mp4" : ".webm";
 }
 
 export function recordingFilename(prefix, mime) {
@@ -52,6 +54,7 @@ export function recordingFilename(prefix, mime) {
 /** Exact shareable type. Codec parameters are not in Chrome's permit list. */
 export function shareableFileType(mime) {
   const raw = (mime || "").toLowerCase();
+  if (raw.indexOf("png") >= 0 || raw.indexOf("image/") === 0) return "image/png";
   if (raw.indexOf("mp4") >= 0) return "video/mp4";
   return "video/webm";
 }
@@ -103,6 +106,9 @@ async function shareFile(file, title) {
 }
 
 function pickerTypes(type) {
+  if (type === "image/png") {
+    return [{ description: "PNG image", accept: { "image/png": [".png"] } }];
+  }
   if (type === "video/mp4") {
     return [{ description: "MP4 video", accept: { "video/mp4": [".mp4"] } }];
   }
@@ -231,9 +237,9 @@ function onSaveFileClick(blob, file, title, setStatus) {
   setStatus("Downloading " + file.name + " (" + kbLabel(blob) + ").");
 }
 
-function showOnPagePlayer(blob, file, title, playerHost, setStatus) {
+function showOnPagePlayer(blob, file, title, playerHost, setStatus, readyStatus) {
   if (!playerHost) {
-    setStatus("Recording ready (" + kbLabel(blob) + "). Tap Save file — the player is missing.", true);
+    setStatus(readyStatus || ("Recording ready (" + kbLabel(blob) + "). Tap Save file — the player is missing."), true);
     return;
   }
   releasePlayerUrl(playerHost);
@@ -242,18 +248,26 @@ function showOnPagePlayer(blob, file, title, playerHost, setStatus) {
   playerHost.hidden = false;
   playerHost.innerHTML = "";
 
-  const video = document.createElement("video");
-  video.controls = true;
-  video.playsInline = true;
-  video.setAttribute("playsinline", "");
-  video.controlsList = "nodownload";
-  video.setAttribute("controlsList", "nodownload");
-  video.src = url;
-  video.className = "rec-player";
+  const image = file.type === "image/png";
+  let preview;
+  if (image) {
+    preview = document.createElement("img");
+    preview.alt = "Snapshot of the craft volcano";
+    preview.src = url;
+  } else {
+    preview = document.createElement("video");
+    preview.controls = true;
+    preview.playsInline = true;
+    preview.setAttribute("playsinline", "");
+    preview.controlsList = "nodownload";
+    preview.setAttribute("controlsList", "nodownload");
+    preview.src = url;
+  }
+  preview.className = "rec-player";
 
   const hint = document.createElement("p");
   hint.className = "hint";
-  const ext = file.type === "video/mp4" ? ".mp4" : ".webm";
+  const ext = image ? ".png" : (file.type === "video/mp4" ? ".mp4" : ".webm");
   hint.textContent = "Tap Save file, then choose Files, Photos, Drive, or a chat. The clip is saved as a named " + ext + ".";
 
   const save = document.createElement("button");
@@ -264,14 +278,14 @@ function showOnPagePlayer(blob, file, title, playerHost, setStatus) {
     onSaveFileClick(blob, file, title, setStatus);
   });
 
-  playerHost.append(video, hint, save);
-  setStatus("Recording ready (" + kbLabel(blob) + "). Tap Save file.");
+  playerHost.append(preview, hint, save);
+  setStatus(readyStatus || ("Recording ready (" + kbLabel(blob) + "). Tap Save file."));
 }
 
 /**
  * Call from the Stop click handler (same user-gesture) after MediaRecorder stops.
  * @param {Blob} blob
- * @param {{ filename: string, title: string, playerHost: HTMLElement, setStatus: Function }} opts
+ * @param {{ filename: string, title: string, playerHost: HTMLElement, setStatus: Function, sharedStatus?: string, readyStatus?: string }} opts
  */
 export async function saveRecordingBlob(blob, opts) {
   const filename = opts.filename;
@@ -289,12 +303,12 @@ export async function saveRecordingBlob(blob, opts) {
   const shared = await shareFile(file, title);
   if (shared === "shared") {
     clearPlayer(playerHost);
-    setStatus("Shared recording (" + kbLabel(blob) + ").");
+    setStatus(opts.sharedStatus || ("Shared recording (" + kbLabel(blob) + ")."));
     return { outcome: "shared" };
   }
 
-  showOnPagePlayer(blob, file, title, playerHost, setStatus);
-  if (shared === "aborted") {
+  showOnPagePlayer(blob, file, title, playerHost, setStatus, opts.readyStatus);
+  if (shared === "aborted" && !opts.readyStatus) {
     setStatus("Share cancelled. Recording ready (" + kbLabel(blob) + "). Tap Save file.");
   }
   return { outcome: "player" };

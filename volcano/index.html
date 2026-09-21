@@ -61,6 +61,7 @@
     .replay { background: var(--ink); color: #fff; }
     .ar-cta { background: var(--ar); color: #fff; font-weight: 700; flex-basis: 100%; }
     .ar-cta:disabled { opacity: .55; }
+    .snap { background: #1565c0; color: #fff; }
     .rec { background: #c62828; color: #fff; }
     .rec.on { background: #8e0000; animation: recPulse 1.2s ease infinite; }
     @keyframes recPulse { 50% { opacity: 0.75; } }
@@ -107,6 +108,7 @@
     #arHud .soda { background: #4a7c59; color: #fff; }
     #arHud .vinegar { background: #c45c26; color: #fff; }
     #arHud .exit { background: #fff; color: #111; }
+    #arHud .snap { background: #1565c0; color: #fff; }
     #arHud .rec { background: #c62828; color: #fff; }
     #arHud .rec.on { background: #8e0000; }
   </style>
@@ -121,14 +123,15 @@
   <p class="hint" id="arHint">
     Tap <strong>Place on table (AR)</strong> — stays in this page when WebXR is available.
     Place the craft volcano + cups, pour baking soda, then pour vinegar (foam). No 3D mesh.
-    Use <strong>Record</strong> to save a clip of the plate (preview or AR).
+    <strong>Snapshot</strong> shares a PNG of the plate. <strong>Record</strong> during baking soda or vinegar shares that clip.
+    For AR camera passthrough, use Samsung screen recorder and attach it in chat.
   </p>
 
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
     <div class="overlay">
-      <img id="plateStill" alt="Craft volcano and cups on the table" src="../assets/keyed/classic3/place_frame0.png?v=classic3-rec3">
-      <video id="clip" playsinline muted poster="../assets/keyed/classic3/place_frame0.png?v=classic3-rec3"></video>
+      <img id="plateStill" alt="Craft volcano and cups on the table" src="../assets/keyed/classic3/place_frame0.png?v=classic3-rec4">
+      <video id="clip" playsinline muted poster="../assets/keyed/classic3/place_frame0.png?v=classic3-rec4"></video>
     </div>
   </div>
 
@@ -137,6 +140,7 @@
     <button class="soda" id="sodaBtn" type="button">Pour baking soda</button>
     <button class="vinegar" id="vinegarBtn" type="button">Pour vinegar</button>
     <button class="replay" id="replayBtn" type="button">Replay</button>
+    <button class="snap" id="snapBtn" type="button">Snapshot</button>
     <button class="rec" id="recBtn" type="button">Record</button>
   </div>
   <p class="hint" id="recStatus"></p>
@@ -176,13 +180,14 @@
     </div>
     <div class="row">
       <button class="exit" id="arExitBtn" type="button">Exit AR</button>
+      <button class="snap" id="arSnapBtn" type="button">Snapshot</button>
       <button class="rec" id="arRecBtn" type="button">Record</button>
     </div>
   </div>
 
   <script type="module">
     import * as THREE from "three";
-    import { pickRecorderMime, recordingFilename, saveRecordingBlob } from "../assets/record-save.js?v=classic3-rec3";
+    import { isAndroidUA, pickRecorderMime, recordingFilename, saveRecordingBlob } from "../assets/record-save.js?v=classic3-rec4";
 
     const plateStill = document.getElementById("plateStill");
     const video = document.getElementById("clip");
@@ -202,17 +207,32 @@
     const arExitBtn = document.getElementById("arExitBtn");
     const recBtn = document.getElementById("recBtn");
     const arRecBtn = document.getElementById("arRecBtn");
+    const snapBtn = document.getElementById("snapBtn");
+    const arSnapBtn = document.getElementById("arSnapBtn");
     const recStatus = document.getElementById("recStatus");
     const recPlayerWrap = document.getElementById("recPlayerWrap");
     const previewRecCanvas = document.getElementById("previewRecCanvas");
     const stage = document.getElementById("stage");
 
-    const V = "classic3-rec3";
+    const V = "classic3-rec4";
     const PLACE_STILL = `../assets/keyed/classic3/place_frame0.png?v=${V}`;
     const SODA_WEBM = `../assets/keyed/classic3/soda.webm?v=${V}`;
     const SODA_END = `../assets/keyed/classic3/soda_end.png?v=${V}`;
     const VINEGAR_WEBM = `../assets/keyed/classic3/vinegar_erupt.webm?v=${V}`;
     const VINEGAR_END = `../assets/keyed/classic3/vinegar_end.png?v=${V}`;
+    const BLOCKED_SNAPSHOT = "Video capture blocked on this phone — shared a snapshot. For motion use Samsung screen recorder and attach in chat.";
+    const stepClipBlobs = { soda: null, vinegar: null };
+
+    function prefetchStepClip(key, url) {
+      fetch(url).then((res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        return res.blob();
+      }).then((blob) => {
+        if (blob && blob.size) stepClipBlobs[key] = blob;
+      }).catch(() => {});
+    }
+    prefetchStepClip("soda", SODA_WEBM);
+    prefetchStepClip("vinegar", VINEGAR_WEBM);
 
     const PAGE = Object.freeze({
       PLACE: "place",
@@ -383,6 +403,7 @@
     function setRecStatus(msg, isErr) {
       recStatus.textContent = msg;
       recStatus.classList.toggle("err", !!isErr);
+      if (isArLive()) setMsg(msg);
     }
 
     let mediaRecorder = null;
@@ -551,6 +572,90 @@
       return recordStream;
     }
 
+    function canvasForSnapshot() {
+      if (isArLive() && arCanvas.width && arCanvas.height && previewRecCtx) {
+        const scale = Math.min(1, 1280 / arCanvas.width);
+        previewRecCanvas.width = Math.max(2, Math.round(arCanvas.width * scale));
+        previewRecCanvas.height = Math.max(2, Math.round(arCanvas.height * scale));
+        previewRecCtx.drawImage(arCanvas, 0, 0, previewRecCanvas.width, previewRecCanvas.height);
+        return previewRecCanvas;
+      }
+      sizePreviewRecCanvas();
+      drawPreviewFrame();
+      return previewRecCanvas;
+    }
+
+    function pngBlobFromCanvas(canvas) {
+      const dataUrl = canvas.toDataURL("image/png");
+      const comma = dataUrl.indexOf(",");
+      const bin = atob(dataUrl.slice(comma + 1));
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new Blob([bytes], { type: "image/png" });
+    }
+
+    async function shareSnapshot(reason) {
+      const canvas = canvasForSnapshot();
+      let blob = null;
+      try {
+        blob = pngBlobFromCanvas(canvas);
+      } catch (_) {
+        blob = await new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
+      }
+      if (!blob || blob.size === 0) {
+        setRecStatus("Could not make a snapshot of the plate.", true);
+        return { outcome: "empty" };
+      }
+      const blocked = reason === "blocked";
+      const kb = Math.round(blob.size / 1024) + " KB";
+      return saveRecordingBlob(blob, {
+        filename: recordingFilename("livinglab-volcano-snapshot-", "image/png"),
+        title: "Living Lab Volcano snapshot",
+        playerHost: recPlayerWrap,
+        setStatus: setRecStatus,
+        sharedStatus: blocked ? BLOCKED_SNAPSHOT : ("Shared snapshot (" + kb + ")."),
+        readyStatus: blocked ? BLOCKED_SNAPSHOT : ("Snapshot ready (" + kb + "). Tap Save file."),
+      });
+    }
+
+    function stepClipKey() {
+      const step = isArLive() ? arStep : pageStep;
+      if (step === PAGE.VINEGAR || step === AR.VINEGAR) return "vinegar";
+      if (step === PAGE.SODA || step === AR.SODA) return "soda";
+      if (!isArLive() && video.classList.contains("use-video")) {
+        const src = video.currentSrc || video.src || "";
+        if (src.indexOf("vinegar") >= 0) return "vinegar";
+        if (src.indexOf("soda") >= 0) return "soda";
+      }
+      return "";
+    }
+
+    async function shareStepClip(key) {
+      let blob = stepClipBlobs[key];
+      if (!blob || !blob.size) {
+        const url = key === "vinegar" ? VINEGAR_WEBM : SODA_WEBM;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("clip fetch failed");
+        blob = await res.blob();
+        if (!blob || !blob.size) throw new Error("clip empty");
+        stepClipBlobs[key] = blob;
+      }
+      const typed = blob.type === "video/webm" ? blob : new Blob([blob], { type: "video/webm" });
+      const label = key === "vinegar" ? "vinegar" : "soda";
+      const kb = Math.round(typed.size / 1024) + " KB";
+      let sharedStatus = "Shared " + label + " clip (" + kb + ").";
+      if (isArLive()) {
+        sharedStatus += " For the AR camera view, use Samsung screen recorder and attach it in chat.";
+      }
+      return saveRecordingBlob(typed, {
+        filename: recordingFilename("livinglab-volcano-" + label + "-", "video/webm"),
+        title: "Living Lab Volcano " + label,
+        playerHost: recPlayerWrap,
+        setStatus: setRecStatus,
+        sharedStatus: sharedStatus,
+      });
+    }
+
     async function finishRecording() {
       if (!mediaRecorder && !recording) return;
       const blob = await collectRecording();
@@ -559,6 +664,10 @@
       stopPreviewDraw();
       stopRecordTracks();
       mediaRecorder = null;
+      if ((!blob || blob.size === 0) && isAndroidUA()) {
+        await shareSnapshot("blocked");
+        return;
+      }
       await saveRecordingBlob(blob, {
         filename: recordingFilename("livinglab-volcano-", recordMime),
         title: "Living Lab Volcano",
@@ -573,6 +682,21 @@
       try {
         if (recording) {
           await finishRecording();
+          return;
+        }
+        const clipKey = stepClipKey();
+        if (clipKey) {
+          try {
+            await shareStepClip(clipKey);
+          } catch (_) {
+            if (isAndroidUA()) await shareSnapshot("blocked");
+            else setRecStatus("Could not share the pour clip.", true);
+          }
+          return;
+        }
+        // Android canvas.captureStream encodes an empty file. Share a PNG instead.
+        if (isAndroidUA()) {
+          await shareSnapshot("blocked");
           return;
         }
         if (!window.MediaRecorder) {
@@ -619,8 +743,22 @@
       }
     }
 
+    async function onSnapshot() {
+      if (recordBusy) return;
+      recordBusy = true;
+      try {
+        await shareSnapshot("button");
+      } catch (e) {
+        setRecStatus("Could not share the snapshot: " + (e.message || e), true);
+      } finally {
+        recordBusy = false;
+      }
+    }
+
     if (recBtn) recBtn.addEventListener("click", () => { toggleRecord(); });
     if (arRecBtn) arRecBtn.addEventListener("click", () => { toggleRecord(); });
+    if (snapBtn) snapBtn.addEventListener("click", () => { onSnapshot(); });
+    if (arSnapBtn) arSnapBtn.addEventListener("click", () => { onSnapshot(); });
 
     // ——— WebXR AR (classic1 plate: MeshBasic + VideoTexture / PNG, LOOK_DOWN 30°) ———
     let scene, camera, reticle, volcanoRoot, xrHitTestSource, xrRefSpace;
