@@ -127,8 +127,8 @@
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
     <div class="overlay">
-      <img id="plateStill" alt="Craft volcano and cups on the table" src="../assets/keyed/classic3/place_frame0.png?v=classic3-rec2">
-      <video id="clip" playsinline muted poster="../assets/keyed/classic3/place_frame0.png?v=classic3-rec2"></video>
+      <img id="plateStill" alt="Craft volcano and cups on the table" src="../assets/keyed/classic3/place_frame0.png?v=classic3-rec3">
+      <video id="clip" playsinline muted poster="../assets/keyed/classic3/place_frame0.png?v=classic3-rec3"></video>
     </div>
   </div>
 
@@ -182,7 +182,7 @@
 
   <script type="module">
     import * as THREE from "three";
-    import { pickRecorderMime, recordingFilename, saveRecordingBlob } from "../assets/record-save.js?v=classic3-rec2";
+    import { pickRecorderMime, recordingFilename, saveRecordingBlob } from "../assets/record-save.js?v=classic3-rec3";
 
     const plateStill = document.getElementById("plateStill");
     const video = document.getElementById("clip");
@@ -207,7 +207,7 @@
     const previewRecCanvas = document.getElementById("previewRecCanvas");
     const stage = document.getElementById("stage");
 
-    const V = "classic3-rec2";
+    const V = "classic3-rec3";
     const PLACE_STILL = `../assets/keyed/classic3/place_frame0.png?v=${V}`;
     const SODA_WEBM = `../assets/keyed/classic3/soda.webm?v=${V}`;
     const SODA_END = `../assets/keyed/classic3/soda_end.png?v=${V}`;
@@ -427,6 +427,18 @@
       ctx.drawImage(src, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
     }
 
+    function requestCaptureFrame() {
+      const track = recordStream && recordStream.getVideoTracks()[0];
+      if (!track || typeof track.requestFrame !== "function") return;
+      try { track.requestFrame(); } catch (_) {}
+    }
+
+    function waitAnimationFrame() {
+      return new Promise((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+    }
+
     function drawPreviewFrame() {
       const ctx = previewRecCtx;
       const w = previewRecCanvas.width;
@@ -441,14 +453,17 @@
       ctx.fillRect(0, 0, w, h);
       const src = video.classList.contains("use-video") ? video : plateStill;
       drawContained(ctx, src, w, h);
+      requestCaptureFrame();
     }
 
     function startPreviewDraw() {
+      stopPreviewDraw();
       sizePreviewRecCanvas();
       const tick = () => {
         drawPreviewFrame();
         previewDrawId = requestAnimationFrame(tick);
       };
+      drawPreviewFrame();
       previewDrawId = requestAnimationFrame(tick);
     }
 
@@ -466,19 +481,74 @@
     function collectRecording() {
       return new Promise((resolve) => {
         const rec = mediaRecorder;
-        if (!rec) {
-          resolve(new Blob());
+        const type = recordMime || "video/webm";
+        const finish = () => resolve(new Blob(recordedChunks, { type }));
+        if (!rec || rec.state === "inactive") {
+          finish();
           return;
         }
-        rec.onstop = () => {
-          resolve(new Blob(recordedChunks, { type: recordMime || "video/webm" }));
+        let settled = false;
+        const done = () => {
+          if (settled) return;
+          settled = true;
+          finish();
         };
+        rec.onstop = done;
+        try {
+          if (typeof rec.requestData === "function") rec.requestData();
+        } catch (_) {}
         try {
           rec.stop();
         } catch (_) {
-          resolve(new Blob(recordedChunks, { type: recordMime || "video/webm" }));
+          done();
         }
       });
+    }
+
+    function createRecorder(stream, mime) {
+      try {
+        return new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 4000000 });
+      } catch (_) {}
+      try {
+        return new MediaRecorder(stream, { mimeType: mime });
+      } catch (_) {}
+      return new MediaRecorder(stream);
+    }
+
+    function liveClipCaptureStream() {
+      const playing = video.classList.contains("use-video")
+        && !video.paused
+        && !video.ended
+        && video.readyState >= 2;
+      if (!playing || typeof video.captureStream !== "function") return null;
+      try {
+        const stream = video.captureStream(30);
+        if (stream && stream.getVideoTracks().length) return stream;
+        if (stream) stream.getTracks().forEach((t) => t.stop());
+      } catch (_) {}
+      return null;
+    }
+
+    async function openRecordStream() {
+      if (isArLive()) {
+        if (typeof arCanvas.captureStream !== "function") return null;
+        recordStream = arCanvas.captureStream(30);
+        requestCaptureFrame();
+        return recordStream;
+      }
+      const clipStream = liveClipCaptureStream();
+      if (clipStream) {
+        recordStream = clipStream;
+        await waitAnimationFrame();
+        return recordStream;
+      }
+      if (typeof previewRecCanvas.captureStream !== "function") return null;
+      startPreviewDraw();
+      recordStream = previewRecCanvas.captureStream(30);
+      await waitAnimationFrame();
+      drawPreviewFrame();
+      requestCaptureFrame();
+      return recordStream;
     }
 
     async function finishRecording() {
@@ -514,28 +584,17 @@
           setRecStatus("No recordable video format on this device.", true);
           return;
         }
-        let canvas;
-        if (isArLive()) {
-          canvas = arCanvas;
-        } else {
-          startPreviewDraw();
-          drawPreviewFrame();
-          canvas = previewRecCanvas;
-        }
-        if (typeof canvas.captureStream !== "function") {
+        const stream = await openRecordStream();
+        if (!stream || !stream.getVideoTracks().length) {
           stopPreviewDraw();
+          stopRecordTracks();
           setRecStatus("This browser cannot capture the canvas for Record.", true);
           return;
         }
-        recordStream = canvas.captureStream(30);
         recordedChunks = [];
         recordMime = mime;
-        try {
-          mediaRecorder = new MediaRecorder(recordStream, { mimeType: mime, videoBitsPerSecond: 4000000 });
-        } catch (_) {
-          mediaRecorder = new MediaRecorder(recordStream);
-          recordMime = mediaRecorder.mimeType || mime;
-        }
+        mediaRecorder = createRecorder(stream, mime);
+        recordMime = mediaRecorder.mimeType || mime;
         mediaRecorder.ondataavailable = (e) => {
           if (e.data && e.data.size) recordedChunks.push(e.data);
         };
@@ -546,6 +605,7 @@
           stopRecordTracks();
           setRecStatus("Record failed.", true);
         };
+        requestCaptureFrame();
         mediaRecorder.start(200);
         recording = true;
         syncRecButtons();
@@ -835,6 +895,7 @@
       }
       if (arVideoTex && arVideo && !arVideo.paused) arVideoTex.needsUpdate = true;
       renderer.render(scene, camera);
+      if (recording) requestCaptureFrame();
     }
 
     async function onAREnd() {

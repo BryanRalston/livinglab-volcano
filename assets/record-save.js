@@ -21,12 +21,20 @@ export function isAppleTouchUA(ua) {
 export function pickRecorderMime() {
   if (!window.MediaRecorder || typeof MediaRecorder.isTypeSupported !== "function") return "";
   // WebM before MP4. Android MediaRecorder mp4 often yields an empty file.
-  const types = [
-    "video/webm;codecs=vp9",
-    "video/webm;codecs=vp8",
-    "video/webm",
-    "video/mp4",
-  ];
+  // Android vp9 often writes a 0-byte webm; prefer vp8, then plain webm.
+  const types = isAndroidUA()
+    ? [
+        "video/webm;codecs=vp8",
+        "video/webm",
+        "video/webm;codecs=vp9",
+        "video/mp4",
+      ]
+    : [
+        "video/webm;codecs=vp9",
+        "video/webm;codecs=vp8",
+        "video/webm",
+        "video/mp4",
+      ];
   for (let i = 0; i < types.length; i++) {
     if (MediaRecorder.isTypeSupported(types[i])) return types[i];
   }
@@ -273,7 +281,7 @@ export async function saveRecordingBlob(blob, opts) {
 
   if (!blob || blob.size === 0) {
     clearPlayer(playerHost);
-    setStatus("Recording was empty — nothing saved.", true);
+    setStatus("Recording was empty — nothing saved. Try again / longer record.", true);
     return { outcome: "empty" };
   }
 
