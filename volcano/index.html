@@ -111,6 +111,110 @@
     #arHud .snap { background: #1565c0; color: #fff; }
     #arHud .rec { background: #c62828; color: #fff; }
     #arHud .rec.on { background: #8e0000; }
+    /* In-page mock camera (agent QC only). Hidden unless ?cam=mock. */
+    #mockCam[hidden] { display: none; }
+    #mockCam {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      background: #000;
+      display: grid;
+      place-items: center;
+    }
+    body.mock-cam { overflow: hidden; }
+    #mockStage {
+      position: relative;
+      height: 100%;
+      width: min(100vw, calc(100dvh * 9 / 16));
+      max-height: 100dvh;
+      background: #000;
+      overflow: hidden;
+    }
+    #mockVideo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center 58%;
+      background: #000;
+      pointer-events: none;
+    }
+    #mockPlateSlot {
+      position: absolute;
+      left: 50%;
+      bottom: 27%;
+      width: min(92%, 640px);
+      z-index: 2;
+      pointer-events: none;
+      transform: translateX(-50%) perspective(980px) rotateX(var(--look-down, 60deg));
+      transform-origin: center bottom;
+    }
+    #mockPlateSlot .overlay {
+      position: relative;
+      inset: auto;
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    #mockPlateSlot #plateStill,
+    #mockPlateSlot #clip {
+      width: 100%;
+      max-height: none;
+      height: auto;
+      filter: drop-shadow(0 10px 8px rgba(0,0,0,.3));
+    }
+    #mockHud {
+      position: absolute;
+      top: calc(8px + env(safe-area-inset-top));
+      left: 8px;
+      right: 8px;
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    #mockCamLabel {
+      align-self: flex-start;
+      font: 700 10px/1.2 ui-monospace, "Segoe UI", sans-serif;
+      letter-spacing: 0.14em;
+      color: #fff;
+      background: rgba(0,0,0,.55);
+      border-radius: 4px;
+      padding: 3px 6px;
+      user-select: none;
+    }
+    #mockHud .mock-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    #mockHud button {
+      flex: 0 0 auto;
+      min-width: 0;
+      min-height: 28px;
+      padding: 4px 8px;
+      font-size: 12px;
+      border-radius: 8px;
+      background: rgba(20,16,12,.78);
+      color: #fff;
+    }
+    #mockHud button[aria-pressed="true"] { background: #0b5fff; }
+    #mockScrub {
+      width: 100%;
+      height: 28px;
+      margin: 0;
+      accent-color: #0b5fff;
+    }
+    #mockActions {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: calc(8px + env(safe-area-inset-bottom));
+      z-index: 4;
+      background: rgba(10,8,6,.55);
+      border-radius: 14px;
+      padding: 8px 8px 6px;
+    }
+    #mockActions .btns { margin: 0; }
+    #mockActions #recStatus { color: #fff; margin: 4px 2px 0; }
+    #mockActions #recStatus.err { color: #ffb4b4; }
   </style>
 </head>
 <body>
@@ -130,22 +234,24 @@
 
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
-    <div class="overlay">
+    <div class="overlay" id="plateOverlay">
       <img id="plateStill" alt="Craft volcano and cups on the table" src="../assets/keyed/classic3/place_frame0.png?v=classic3-rec5">
       <video id="clip" playsinline muted poster="../assets/keyed/classic3/place_frame0.png?v=classic3-rec5"></video>
     </div>
   </div>
 
-  <div class="btns">
-    <button class="ar-cta" id="arBtn" type="button">Place on table (AR)</button>
-    <button class="soda" id="sodaBtn" type="button">Pour baking soda</button>
-    <button class="vinegar" id="vinegarBtn" type="button">Pour vinegar</button>
-    <button class="replay" id="replayBtn" type="button">Replay</button>
-    <button class="snap" id="snapBtn" type="button">Snapshot</button>
-    <button class="rec" id="recBtn" type="button">Record</button>
+  <div id="pageControls">
+    <div class="btns">
+      <button class="ar-cta" id="arBtn" type="button">Place on table (AR)</button>
+      <button class="soda" id="sodaBtn" type="button">Pour baking soda</button>
+      <button class="vinegar" id="vinegarBtn" type="button">Pour vinegar</button>
+      <button class="replay" id="replayBtn" type="button">Replay</button>
+      <button class="snap" id="snapBtn" type="button">Snapshot</button>
+      <button class="rec" id="recBtn" type="button">Record</button>
+    </div>
+    <p class="hint" id="recStatus"></p>
+    <div id="recPlayerWrap" hidden></div>
   </div>
-  <p class="hint" id="recStatus"></p>
-  <div id="recPlayerWrap" hidden></div>
   <canvas id="previewRecCanvas" aria-hidden="true"></canvas>
 
   <section class="why" id="why">
@@ -183,6 +289,25 @@
       <button class="exit" id="arExitBtn" type="button">Exit AR</button>
       <button class="snap" id="arSnapBtn" type="button">Snapshot</button>
       <button class="rec" id="arRecBtn" type="button">Record</button>
+    </div>
+  </div>
+
+  <div id="mockCam" hidden>
+    <div id="mockStage">
+      <video id="mockVideo" playsinline muted loop disablepictureinpicture></video>
+      <div id="mockPlateSlot"></div>
+      <div id="mockHud">
+        <span id="mockCamLabel">MOCK CAM</span>
+        <div class="mock-row" id="mockClipRow">
+          <button type="button" data-clip="good" aria-pressed="true">good</button>
+          <button type="button" data-clip="dim" aria-pressed="false">dim</button>
+          <button type="button" data-clip="walk" aria-pressed="false">walk</button>
+          <button type="button" id="mockPlayBtn">Pause</button>
+          <button type="button" id="mockFreezeBtn" aria-pressed="false">Freeze</button>
+        </div>
+        <input id="mockScrub" type="range" min="0" max="1000" step="1" value="0" aria-label="Scrub mock camera">
+      </div>
+      <div id="mockActions"></div>
     </div>
   </div>
 
@@ -1115,14 +1240,237 @@
       revealLesson();
     }
 
+    // ——— In-page mock camera (agent QC). Default remains live WebXR. ———
+    // Cache-bust for this ship is cam-mock1. Keyed classic3 plates stay classic3-rec5.
+    const CAM_V = "cam-mock1";
+    const LOOK_DOWN_DEG = 30;
+    const MOCK_CLIPS = Object.freeze({
+      good: `../assets/cam-mock/table-good.webm?v=${CAM_V}`,
+      dim: `../assets/cam-mock/table-dim.webm?v=${CAM_V}`,
+      walk: `../assets/cam-mock/table-walk.webm?v=${CAM_V}`,
+    });
+
+    const mockCam = document.getElementById("mockCam");
+    const mockVideo = document.getElementById("mockVideo");
+    const mockPlateSlot = document.getElementById("mockPlateSlot");
+    const mockActions = document.getElementById("mockActions");
+    const mockPlayBtn = document.getElementById("mockPlayBtn");
+    const mockFreezeBtn = document.getElementById("mockFreezeBtn");
+    const mockScrub = document.getElementById("mockScrub");
+    const mockClipRow = document.getElementById("mockClipRow");
+    const mockCamLabel = document.getElementById("mockCamLabel");
+    const plateOverlay = document.getElementById("plateOverlay");
+    const pageControls = document.getElementById("pageControls");
+    const productChrome = document.querySelector("header");
+    const controlsHome = pageControls.parentNode;
+    const controlsNext = pageControls.nextSibling;
+
+    let mockOn = false;
+    let mockFrozen = false;
+    let mockScrubbing = false;
+    let mockClipId = "good";
+    let mockLoadGen = 0;
+    let arBtnLabelBeforeMock = arBtn.textContent;
+    let chromeTaps = [];
+
+    // Upright plate image tipped so it sits LOOK_DOWN_DEG off the table (same as AR).
+    mockPlateSlot.style.setProperty("--look-down", (90 - LOOK_DOWN_DEG) + "deg");
+
+    function camQueryIsMock() {
+      const raw = new URLSearchParams(location.search).get("cam");
+      if (!raw) return false;
+      const key = raw.toLowerCase();
+      return key === "mock" || key === "clip-table";
+    }
+
+    function mockSrc(id) {
+      switch (id) {
+        case "good":
+          return MOCK_CLIPS.good;
+        case "dim":
+          return MOCK_CLIPS.dim;
+        case "walk":
+          return MOCK_CLIPS.walk;
+        default:
+          return MOCK_CLIPS.good;
+      }
+    }
+
+    function syncMockTransportUi() {
+      mockPlayBtn.textContent = mockVideo.paused ? "Play" : "Pause";
+      mockFreezeBtn.textContent = mockFrozen ? "Frozen" : "Freeze";
+      mockFreezeBtn.setAttribute("aria-pressed", mockFrozen ? "true" : "false");
+      for (const btn of mockClipRow.querySelectorAll("button[data-clip]")) {
+        btn.setAttribute("aria-pressed", btn.dataset.clip === mockClipId ? "true" : "false");
+      }
+    }
+
+    function applyMockClip(id) {
+      const gen = ++mockLoadGen;
+      switch (id) {
+        case "good":
+        case "dim":
+        case "walk":
+          mockClipId = id;
+          break;
+        default:
+          mockClipId = "good";
+      }
+      mockVideo.loop = true;
+      mockVideo.muted = true;
+      mockVideo.defaultMuted = true;
+      mockVideo.playsInline = true;
+      mockVideo.src = mockSrc(mockClipId);
+      // Do not assign currentTime here. A seek during loadedmetadata leaves
+      // Chrome's seekable range at 0, so the scrub slider cannot move.
+      let started = false;
+      const startClip = () => {
+        if (started || gen !== mockLoadGen) return;
+        started = true;
+        if (mockFrozen) {
+          mockVideo.pause();
+          syncMockTransportUi();
+          return;
+        }
+        const playing = mockVideo.play();
+        if (playing && playing.catch) playing.catch(() => { syncMockTransportUi(); });
+        syncMockTransportUi();
+      };
+      mockVideo.addEventListener("loadeddata", startClip, { once: true });
+      if (mockVideo.readyState >= 2) startClip();
+      syncMockTransportUi();
+    }
+
+    function enterMock() {
+      if (mockOn) return;
+      mockOn = true;
+      arBtnLabelBeforeMock = arBtn.textContent;
+      mockCam.hidden = false;
+      document.body.classList.add("mock-cam");
+      mockPlateSlot.appendChild(plateOverlay);
+      mockActions.appendChild(pageControls);
+      arBtn.textContent = "Place";
+      arBtn.disabled = false;
+      applyMockClip(mockClipId);
+    }
+
+    function exitMock() {
+      if (!mockOn) return;
+      mockOn = false;
+      mockFrozen = false;
+      mockLoadGen += 1;
+      try { mockVideo.pause(); } catch (_) {}
+      mockVideo.removeAttribute("src");
+      try { mockVideo.load(); } catch (_) {}
+      document.body.classList.remove("mock-cam");
+      mockCam.hidden = true;
+      stage.appendChild(plateOverlay);
+      controlsHome.insertBefore(pageControls, controlsNext);
+      arBtn.textContent = arBtnLabelBeforeMock || "Place on table (AR)";
+      syncMockTransportUi();
+      refreshArAvailability();
+    }
+
+    function toggleMock() {
+      if (mockOn) exitMock();
+      else enterMock();
+    }
+
+    function onProductChromeTap(ev) {
+      const now = Date.now();
+      chromeTaps = chromeTaps.filter((t) => now - t < 2500);
+      chromeTaps.push(now);
+      if (chromeTaps.length < 5) return;
+      chromeTaps = [];
+      ev.preventDefault();
+      toggleMock();
+    }
+
+    mockClipRow.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("button[data-clip]");
+      if (!btn || !mockOn) return;
+      applyMockClip(btn.dataset.clip);
+    });
+
+    mockPlayBtn.addEventListener("click", () => {
+      if (!mockOn) return;
+      if (mockVideo.paused) {
+        mockFrozen = false;
+        const playing = mockVideo.play();
+        if (playing && playing.catch) playing.catch(() => {});
+      } else {
+        mockVideo.pause();
+      }
+      syncMockTransportUi();
+    });
+
+    mockFreezeBtn.addEventListener("click", () => {
+      if (!mockOn) return;
+      mockFrozen = !mockFrozen;
+      if (mockFrozen) {
+        mockVideo.pause();
+      } else {
+        const playing = mockVideo.play();
+        if (playing && playing.catch) playing.catch(() => {});
+      }
+      syncMockTransportUi();
+    });
+
+    function seekMockClip(ratio) {
+      const dur = mockVideo.duration;
+      if (!Number.isFinite(dur) || dur <= 0) return;
+      const end = mockVideo.seekable.length ? mockVideo.seekable.end(0) : 0;
+      if (end <= 0) return;
+      const t = Math.min(Math.max(0, ratio) * dur, Math.max(0, end - 0.04));
+      try { mockVideo.currentTime = t; } catch (_) {}
+      if (mockFrozen || mockVideo.paused) mockVideo.pause();
+    }
+
+    mockScrub.addEventListener("pointerdown", () => { mockScrubbing = true; });
+    mockScrub.addEventListener("pointerup", () => { mockScrubbing = false; });
+    mockScrub.addEventListener("pointercancel", () => { mockScrubbing = false; });
+    mockScrub.addEventListener("input", () => {
+      mockScrubbing = true;
+      seekMockClip(Number(mockScrub.value) / 1000);
+    });
+    mockScrub.addEventListener("change", () => { mockScrubbing = false; });
+
+    mockVideo.addEventListener("timeupdate", () => {
+      if (mockScrubbing) return;
+      const dur = mockVideo.duration;
+      if (!Number.isFinite(dur) || dur <= 0) return;
+      mockScrub.value = String(Math.round((mockVideo.currentTime / dur) * 1000));
+    });
+    mockVideo.addEventListener("play", syncMockTransportUi);
+    mockVideo.addEventListener("pause", syncMockTransportUi);
+
+    mockCamLabel.addEventListener("click", onProductChromeTap);
+    productChrome.addEventListener("click", (ev) => {
+      if (ev.target.closest("a")) return;
+      onProductChromeTap(ev);
+    });
+
+    function placeInMock() {
+      resetPagePlate();
+    }
+
     arBtn.addEventListener("click", () => {
+      if (mockOn) {
+        placeInMock();
+        return;
+      }
       startAR().catch((err) => {
         console.error(err);
         alert("Couldn't start WebXR AR: " + (err && err.message ? err.message : err));
       });
     });
 
-    (async () => {
+    async function refreshArAvailability() {
+      if (mockOn) {
+        arBtn.textContent = "Place";
+        arBtn.disabled = false;
+        return;
+      }
       try {
         if (navigator.xr && await navigator.xr.isSessionSupported("immersive-ar")) {
           arBtn.disabled = false;
@@ -1133,7 +1481,10 @@
       } catch (_) {
         arBtn.disabled = false;
       }
-    })();
+    }
+
+    if (camQueryIsMock()) enterMock();
+    refreshArAvailability();
   </script>
 </body>
 </html>
