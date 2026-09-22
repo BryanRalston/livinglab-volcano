@@ -46,10 +46,9 @@
       position: absolute;
       left: 50%;
       bottom: 16%;
-      width: min(88%, 360px);
+      width: min(92%, 420px);
       z-index: 2;
-      /* 8° tip, then drop the transparent footer so the land animals' feet meet the wood. */
-      transform: translateX(-50%) translateY(15.7%) perspective(980px) rotateX(var(--look-down, 8deg));
+      transform: translateX(-50%) perspective(980px) rotateX(var(--look-down, 60deg));
       transform-origin: center bottom;
     }
     #plateStill, #clip, #dualPlate {
@@ -122,8 +121,8 @@
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
     <div id="plateSlot">
-      <img id="plateStill" alt="Two dinosaurs and a pterosaur" src="../assets/dinos/imagine2/place_frame0.png?v=dinos2b">
-      <video id="clip" playsinline muted loop preload="auto" poster="../assets/dinos/imagine2/place_frame0.png?v=dinos2b"></video>
+      <img id="plateStill" alt="Two dinosaurs and a pterosaur" src="../assets/dinos/imagine2/place_frame0.png?v=dinos2c">
+      <video id="clip" playsinline muted loop preload="auto" poster="../assets/dinos/imagine2/place_frame0.png?v=dinos2c"></video>
       <canvas id="dualPlate" aria-hidden="true"></canvas>
     </div>
   </div>
@@ -166,25 +165,18 @@
 
   <script type="module">
     import * as THREE from "three";
-    import { createDualPlayback } from "../assets/dinos/dual-key.js?v=dinos2b";
+    import { createDualPlayback } from "../assets/dinos/dual-key.js?v=dinos2c";
 
-    const V = "dinos2b";
+    const V = "dinos2c";
     const PLACE_STILL = `../assets/dinos/imagine2/place_frame0.png?v=${V}`;
     const PLAY_WEBM = `../assets/dinos/imagine2/play.webm?v=${V}`;
     const PLAY_DUAL = `../assets/dinos/imagine2/play_dual.webm?v=${V}`;
-    // place_frame0 is 1104×816. Opaque land animals are y=318–687 (370px),
-    // so standing height = PLATE_W * 370/1104. 1.0m → ~33cm, same presence as
-    // the volcano foam subject (~0.32m), not the old 0.46m floor stickers.
-    const FRAME_W = 1104;
-    const FRAME_H = 816;
-    const FOOT_ROW = 687;
+    // 1.0m keeps the dinos2b size (land animals ~33cm along the plate).
+    // Tip matches volcano foam3: 30° off the table so the phone sees the front.
     const PLATE_W = 1.0;
-    const PLATE_H = PLATE_W * (FRAME_H / FRAME_W);
-    const FOOT_FRAC = (FRAME_H - 1 - FOOT_ROW) / (FRAME_H - 1);
-    // Eye-level side profile. Volcano's 30° look-down is for a top-down plate;
-    // this cutout stands nearly upright and leans back a few degrees.
-    const TIP_DEG = 8;
-    const TIP = (TIP_DEG * Math.PI) / 180;
+    const PLATE_H = PLATE_W * (816 / 1104);
+    const LOOK_DOWN_DEG = 30;
+    const LOOK_DOWN = (LOOK_DOWN_DEG * Math.PI) / 180;
 
     const AR = Object.freeze({ UNPLACED: "unplaced", PLACED: "placed", PLAY: "play" });
 
@@ -207,7 +199,7 @@
     const arExitBtn = document.getElementById("arExitBtn");
     const arWhyBtn = document.getElementById("arWhyBtn");
 
-    plateSlot.style.setProperty("--look-down", TIP_DEG + "deg");
+    plateSlot.style.setProperty("--look-down", (90 - LOOK_DOWN_DEG) + "deg");
 
     let placeTex = null;
     let stillReady = false;
@@ -361,7 +353,7 @@
       return new THREE.MeshBasicMaterial({
         transparent: true,
         alphaTest: 0.25,
-        side: THREE.DoubleSide,
+        side: THREE.FrontSide,
         depthTest: true,
         depthWrite: false,
         opacity: 1,
@@ -370,11 +362,10 @@
 
     function makePlateMesh(material) {
       const geo = new THREE.PlaneGeometry(PLATE_W, PLATE_H);
-      // Pivot at the land animals' feet so the cutout stands on the table.
-      geo.translate(0, PLATE_H / 2 - PLATE_H * FOOT_FRAC, 0);
+      geo.translate(0, PLATE_H / 2, 0);
       const mesh = new THREE.Mesh(geo, material);
-      mesh.rotation.x = -TIP;
-      mesh.position.set(0, 0.002, 0);
+      mesh.rotation.x = -Math.PI / 2 + LOOK_DOWN;
+      mesh.position.set(0, 0.004, 0);
       mesh.renderOrder = 10;
       mesh.frustumCulled = false;
       return mesh;
