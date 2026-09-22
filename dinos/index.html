@@ -121,8 +121,8 @@
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
     <div id="plateSlot">
-      <img id="plateStill" alt="Two dinosaurs and a pterosaur" src="../assets/dinos/imagine2/place_frame0.png?v=dinos2d">
-      <video id="clip" playsinline muted loop preload="auto" poster="../assets/dinos/imagine2/place_frame0.png?v=dinos2d"></video>
+      <img id="plateStill" alt="Two dinosaurs and a pterosaur" src="../assets/dinos/imagine2/place_frame0.png?v=dinos2e">
+      <video id="clip" playsinline muted loop preload="auto" poster="../assets/dinos/imagine2/place_frame0.png?v=dinos2e"></video>
       <canvas id="dualPlate" aria-hidden="true"></canvas>
     </div>
   </div>
@@ -165,9 +165,9 @@
 
   <script type="module">
     import * as THREE from "three";
-    import { createDualPlayback } from "../assets/dinos/dual-key.js?v=dinos2d";
+    import { createDualPlayback } from "../assets/dinos/dual-key.js?v=dinos2e";
 
-    const V = "dinos2d";
+    const V = "dinos2e";
     const PLACE_STILL = `../assets/dinos/imagine2/place_frame0.png?v=${V}`;
     const PLAY_WEBM = `../assets/dinos/imagine2/play.webm?v=${V}`;
     const PLAY_DUAL = `../assets/dinos/imagine2/play_dual.webm?v=${V}`;
@@ -289,6 +289,10 @@
 
     async function startDualClip() {
       if (dualPlayback.running) dualPlayback.stop();
+      plateStill.classList.add("hide");
+      video.classList.remove("use-video");
+      try { video.pause(); } catch (_) {}
+      dualCanvas.classList.add("use-video");
       await dualPlayback.start(PLAY_DUAL);
     }
 

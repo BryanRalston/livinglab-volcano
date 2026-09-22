@@ -212,6 +212,7 @@ function makeCompositor(width, height) {
       upload(1, alphaTex, alphaFrame);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      target.clearRect(0, 0, width, height);
       target.drawImage(glCanvas, 0, 0, width, height);
     },
   };

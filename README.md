@@ -2,6 +2,6 @@
 
 Phone AR science table: place a bowl-scale baking-soda volcano, pour soda then vinegar, read why, answer one quiz.
 
-Dinosaur table (`/dinos/?v=dinos2d`): keyed plate. Place the still, then Play. T. rex and Triceratops are on the table with a pterosaur; the flyer is not a dinosaur.
+Dinosaur table (`/dinos/?v=dinos2e`): keyed plate. Place the still, then Play. T. rex and Triceratops are on the table with a pterosaur; the flyer is not a dinosaur.
 
 https://bryanralston.github.io/livinglab-volcano/
