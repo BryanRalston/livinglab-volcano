@@ -32,11 +32,33 @@
       height: min(58vh, 440px);
       border-radius: 16px;
       overflow: hidden;
-      background: #cfe7ff;
+      background: linear-gradient(180deg, #cfe7ff 0%, #e7f2ff 40%, #d7b48a 41%, #8a6a3d 100%);
       border: 1px solid var(--line);
       touch-action: none;
     }
-    #view { width: 100%; height: 100%; display: block; }
+    .table {
+      position: absolute; left: -12%; right: -12%; bottom: 0; height: 48%;
+      transform: rotateX(62deg); transform-origin: top center;
+      background: repeating-linear-gradient(90deg, #b8894e 0 18px, #a6783e 18px 36px);
+      box-shadow: 0 -8px 24px rgba(0,0,0,.18);
+    }
+    #plateSlot {
+      position: absolute;
+      left: 50%;
+      bottom: 16%;
+      width: min(92%, 420px);
+      z-index: 2;
+      transform: translateX(-50%) perspective(980px) rotateX(var(--look-down, 60deg));
+      transform-origin: center bottom;
+    }
+    #plateStill, #clip {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    #plateStill.hide { display: none; }
+    #clip { display: none; }
+    #clip.use-video { display: block; }
     .btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
     button {
       flex: 1; min-height: 48px; border: 0; border-radius: 12px;
@@ -96,7 +118,13 @@
     On Android Chrome, <strong>Place on table (AR)</strong> sticks it to a real table with the phone camera. Place first, then Play.
   </p>
 
-  <div class="stage" id="stage"><canvas id="view" aria-label="Dinosaur scene on a table"></canvas></div>
+  <div class="stage" id="stage">
+    <div class="table" aria-hidden="true"></div>
+    <div id="plateSlot">
+      <img id="plateStill" alt="Two dinosaurs and a pterosaur" src="../assets/dinos/imagine2/place_frame0.png?v=imagine2">
+      <video id="clip" playsinline muted loop preload="auto" poster="../assets/dinos/imagine2/place_frame0.png?v=imagine2"></video>
+    </div>
+  </div>
 
   <div class="btns">
     <button class="play" id="playBtn" type="button" disabled>Play</button>
@@ -140,11 +168,10 @@
     const V = "imagine2";
     const PLACE_STILL = `../assets/dinos/imagine2/place_frame0.png?v=${V}`;
     const PLAY_WEBM = `../assets/dinos/imagine2/play.webm?v=${V}`;
-    // 1104×816 keyed plate. Width is tabletop scale; height keeps the frame aspect.
     const PLATE_W = 0.46;
     const PLATE_H = PLATE_W * (816 / 1104);
-    // Same foam3 / cups4 tip as volcano: 30° off the table, pivot on the near edge.
-    const LOOK_DOWN = (30 * Math.PI) / 180;
+    const LOOK_DOWN_DEG = 30;
+    const LOOK_DOWN = (LOOK_DOWN_DEG * Math.PI) / 180;
 
     const AR = Object.freeze({ UNPLACED: "unplaced", PLACED: "placed", PLAY: "play" });
 
@@ -154,7 +181,9 @@
     const why = document.getElementById("why");
     const quiz = document.getElementById("quiz");
     const feedback = document.getElementById("feedback");
-    const canvas = document.getElementById("view");
+    const plateStill = document.getElementById("plateStill");
+    const video = document.getElementById("clip");
+    const plateSlot = document.getElementById("plateSlot");
     const arCanvas = document.getElementById("arCanvas");
     const arHud = document.getElementById("arHud");
     const arMsg = document.getElementById("arMsg");
@@ -163,11 +192,11 @@
     const arExitBtn = document.getElementById("arExitBtn");
     const arWhyBtn = document.getElementById("arWhyBtn");
 
+    plateSlot.style.setProperty("--look-down", (90 - LOOK_DOWN_DEG) + "deg");
+
     let placeTex = null;
-    let previewVideo = null;
-    let previewVideoTex = null;
-    let previewMat = null;
-    let previewMesh = null;
+    let stillReady = false;
+    let arSupported = false;
     let arPresenting = false;
     let arStep = AR.UNPLACED;
     let arRenderer = null;
@@ -181,7 +210,6 @@
     let xrHitTestSource = null;
     let xrRefSpace = null;
     let xrSession = null;
-    let arSupported = false;
 
     function setStatus(msg, isErr) {
       statusEl.textContent = msg;
@@ -198,10 +226,65 @@
     }
 
     function canPlayWebm() {
-      const probe = document.createElement("video");
-      const t = probe.canPlayType('video/webm; codecs="vp9"');
+      const t = video.canPlayType('video/webm; codecs="vp9"');
       return t === "probably" || t === "maybe";
     }
+
+    function markReady() {
+      if (stillReady) return;
+      stillReady = true;
+      playBtn.disabled = false;
+      if (arSupported) arBtn.disabled = false;
+      setStatus("Ready. Tap Play, or Place on table if this phone has AR.");
+    }
+
+    plateStill.addEventListener("load", markReady);
+    plateStill.addEventListener("error", () => {
+      setStatus("Could not load the dinosaur plate.", true);
+    });
+    if (plateStill.complete && plateStill.naturalWidth) markReady();
+
+    video.src = PLAY_WEBM;
+    video.loop = true;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.setAttribute("playsinline", "");
+
+    function startPreviewPlay() {
+      if (!stillReady) return;
+      if (!canPlayWebm()) {
+        setStatus("This browser cannot play the WebM clip. Try Chrome. The still stays up.", true);
+        revealLesson();
+        return;
+      }
+      plateStill.classList.add("hide");
+      video.classList.add("use-video");
+      try { video.currentTime = 0; } catch (_) {}
+      const pending = video.play();
+      if (pending && pending.catch) {
+        pending.catch(() => {
+          setStatus("This browser could not play the clip. Try Chrome.", true);
+        });
+      }
+      playBtn.textContent = "Replay";
+      revealLesson();
+      setStatus("Playing. The pterosaur is the one in the air. Scroll for why and a quick check.");
+    }
+
+    playBtn.addEventListener("click", () => startPreviewPlay());
+
+    document.getElementById("quizForm").addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const picked = document.querySelector("input[name=q]:checked");
+      if (!picked) {
+        feedback.textContent = "Pick one answer first.";
+        return;
+      }
+      feedback.textContent = picked.value === "reptile"
+        ? "Yes. Pterosaurs flew, but they are flying reptiles — not dinosaurs."
+        : "Not quite. The flyer is a pterosaur: a flying reptile, not a dinosaur and not a bird.";
+    });
 
     function setPlateMap(mat, tex) {
       if (!mat || !tex) return;
@@ -234,138 +317,50 @@
     }
 
     function makeKeyedVideo() {
-      const video = document.createElement("video");
-      video.className = "keyed-video";
-      video.playsInline = true;
-      video.muted = true;
-      video.defaultMuted = true;
-      video.loop = true;
-      video.crossOrigin = "anonymous";
-      video.setAttribute("playsinline", "");
-      video.setAttribute("muted", "");
-      video.preload = "auto";
-      video.src = PLAY_WEBM;
-      document.body.appendChild(video);
-      const tex = new THREE.VideoTexture(video);
+      const el = document.createElement("video");
+      el.className = "keyed-video";
+      el.playsInline = true;
+      el.muted = true;
+      el.defaultMuted = true;
+      el.loop = true;
+      el.crossOrigin = "anonymous";
+      el.setAttribute("playsinline", "");
+      el.setAttribute("muted", "");
+      el.preload = "auto";
+      el.src = PLAY_WEBM;
+      document.body.appendChild(el);
+      const tex = new THREE.VideoTexture(el);
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.minFilter = THREE.LinearFilter;
       tex.magFilter = THREE.LinearFilter;
       tex.generateMipmaps = false;
-      return { video, tex };
+      return { video: el, tex };
     }
 
-    function playKeyed(video, tex, mat) {
-      video.loop = true;
-      video.muted = true;
-      video.playsInline = true;
-      try { video.currentTime = 0; } catch (_) {}
+    function playKeyed(el, tex, mat) {
+      el.loop = true;
+      el.muted = true;
+      el.playsInline = true;
+      try { el.currentTime = 0; } catch (_) {}
       setPlateMap(mat, tex);
-      const pending = video.play();
+      const pending = el.play();
       if (pending && pending.catch) {
         pending.catch(() => {
-          setStatus("This browser could not play the clip. Try Chrome.", true);
+          setMsg("This browser could not play the clip.");
         });
       }
     }
 
-    const previewRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-    previewRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
-
-    const previewScene = new THREE.Scene();
-    previewScene.background = new THREE.Color(0xcfe7ff);
-    const previewCamera = new THREE.PerspectiveCamera(38, 1, 0.05, 20);
-    // Look down onto the tipped plate so the side-profile frame reads as a tabletop card.
-    previewCamera.position.set(0, 0.78, 0.48);
-    previewCamera.lookAt(0, 0.02, -0.08);
-
-    previewScene.add(new THREE.HemisphereLight(0xfff6ea, 0x6b5030, 1.15));
-    const previewKey = new THREE.DirectionalLight(0xffffff, 1.35);
-    previewKey.position.set(0.7, 1.6, 0.5);
-    previewScene.add(previewKey);
-    previewScene.add(new THREE.AmbientLight(0xffffff, 0.28));
-
-    const floor = new THREE.Mesh(
-      new THREE.CircleGeometry(1.5, 48),
-      new THREE.MeshStandardMaterial({ color: 0x8d6a3e, roughness: 1, metalness: 0 })
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -0.008;
-    previewScene.add(floor);
-
-    const table = new THREE.Mesh(
-      new THREE.CircleGeometry(0.62, 48),
-      new THREE.MeshStandardMaterial({ color: 0xb8894e, roughness: 0.92, metalness: 0 })
-    );
-    table.rotation.x = -Math.PI / 2;
-    table.position.y = 0;
-    previewScene.add(table);
-
-    previewMat = makePlateMaterial();
-    previewMesh = makePlateMesh(previewMat);
-    previewMesh.visible = false;
-    previewScene.add(previewMesh);
-
-    const previewKeyed = makeKeyedVideo();
-    previewVideo = previewKeyed.video;
-    previewVideoTex = previewKeyed.tex;
-
-    function resizePreview() {
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      previewRenderer.setSize(w, h, false);
-      previewCamera.aspect = w / Math.max(h, 1);
-      previewCamera.updateProjectionMatrix();
-    }
-    resizePreview();
-    addEventListener("resize", resizePreview);
-
-    function markReady() {
-      playBtn.disabled = false;
-      if (arSupported) arBtn.disabled = false;
-      setStatus("Ready. Tap Play, or Place on table if this phone has AR.");
-    }
-
-    const texLoader = new THREE.TextureLoader();
-    texLoader.load(PLACE_STILL, (tex) => {
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.premultiplyAlpha = true;
-      tex.minFilter = THREE.LinearFilter;
-      tex.magFilter = THREE.LinearFilter;
-      placeTex = tex;
-      setPlateMap(previewMat, tex);
-      previewMesh.visible = true;
-      if (arStep === AR.PLACED && arPlateMat) setPlateMap(arPlateMat, tex);
-      markReady();
-    }, undefined, () => {
-      setStatus("Could not load the dinosaur plate.", true);
-    });
-
-    function startPreviewPlay() {
-      if (!placeTex || !previewMat) return;
-      if (!canPlayWebm()) {
-        setStatus("This browser cannot play the WebM clip. Try Chrome. The still stays up.", true);
-        revealLesson();
-        return;
-      }
-      playKeyed(previewVideo, previewVideoTex, previewMat);
-      playBtn.textContent = "Replay";
-      revealLesson();
-      setStatus("Playing. The pterosaur is the one in the air. Scroll for why and a quick check.");
-    }
-
-    playBtn.addEventListener("click", () => startPreviewPlay());
-
-    document.getElementById("quizForm").addEventListener("submit", (ev) => {
-      ev.preventDefault();
-      const picked = document.querySelector("input[name=q]:checked");
-      if (!picked) {
-        feedback.textContent = "Pick one answer first.";
-        return;
-      }
-      feedback.textContent = picked.value === "reptile"
-        ? "Yes. Pterosaurs flew, but they are flying reptiles — not dinosaurs."
-        : "Not quite. The flyer is a pterosaur: a flying reptile, not a dinosaur and not a bird.";
+    const placeTexReady = new Promise((resolve, reject) => {
+      new THREE.TextureLoader().load(PLACE_STILL, (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.premultiplyAlpha = true;
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        placeTex = tex;
+        if (arStep === AR.PLACED && arPlateMat) setPlateMap(arPlateMat, tex);
+        resolve(tex);
+      }, undefined, reject);
     });
 
     function buildArPlate() {
@@ -377,6 +372,29 @@
       const root = new THREE.Group();
       root.add(makePlateMesh(arPlateMat));
       return root;
+    }
+
+    function disposeArPlate() {
+      if (arVideo) {
+        try { arVideo.pause(); } catch (_) {}
+        arVideo.remove();
+        arVideo = null;
+      }
+      if (arVideoTex) {
+        arVideoTex.dispose();
+        arVideoTex = null;
+      }
+      if (arPlateMat) {
+        arPlateMat.dispose();
+        arPlateMat = null;
+      }
+      if (plateRoot) {
+        plateRoot.traverse((obj) => {
+          if (obj.geometry) obj.geometry.dispose();
+        });
+        if (arScene) arScene.remove(plateRoot);
+        plateRoot = null;
+      }
     }
 
     function placeOnTable() {
@@ -425,33 +443,18 @@
       setMsg("Playing on the table. The pterosaur is the one in the air.");
     }
 
-    function disposeArPlate() {
-      if (arVideo) {
-        try { arVideo.pause(); } catch (_) {}
-        arVideo.remove();
-        arVideo = null;
-      }
-      if (arVideoTex) {
-        arVideoTex.dispose();
-        arVideoTex = null;
-      }
-      if (arPlateMat) {
-        arPlateMat.dispose();
-        arPlateMat = null;
-      }
-      if (plateRoot) {
-        plateRoot.traverse((obj) => {
-          if (obj.geometry) obj.geometry.dispose();
-        });
-        if (arScene) arScene.remove(plateRoot);
-        plateRoot = null;
-      }
-    }
-
     async function startAR() {
-      if (!placeTex) {
+      if (!stillReady) {
         setStatus("Still loading the plate.", true);
         return;
+      }
+      if (!placeTex) {
+        try {
+          await placeTexReady;
+        } catch (_) {
+          setStatus("Could not load the dinosaur plate.", true);
+          return;
+        }
       }
       if (!navigator.xr) {
         setStatus("WebXR is not in this browser. Use Chrome on Android. Play still works here.", true);
@@ -492,7 +495,7 @@
       reticle.visible = false;
       arScene.add(reticle);
 
-      try { previewVideo.pause(); } catch (_) {}
+      try { video.pause(); } catch (_) {}
 
       xrSession = await navigator.xr.requestSession("immersive-ar", {
         requiredFeatures: ["hit-test"],
@@ -503,7 +506,6 @@
       arRenderer.xr.setReferenceSpaceType("local");
       await arRenderer.xr.setSession(xrSession);
       arPresenting = true;
-      previewRenderer.setAnimationLoop(null);
 
       xrRefSpace = await xrSession.requestReferenceSpace("local");
       const viewerSpace = await xrSession.requestReferenceSpace("viewer");
@@ -553,15 +555,7 @@
       xrSession = null;
       revealLesson();
       setStatus("Left AR. Scroll for why and the quick check.");
-      previewRenderer.setAnimationLoop(onPreviewFrame);
     }
-
-    function onPreviewFrame() {
-      if (arPresenting) return;
-      if (previewVideoTex && previewVideo && !previewVideo.paused) previewVideoTex.needsUpdate = true;
-      previewRenderer.render(previewScene, previewCamera);
-    }
-    previewRenderer.setAnimationLoop(onPreviewFrame);
 
     arBtn.addEventListener("click", () => {
       startAR().catch((err) => {
@@ -576,7 +570,6 @@
         disposeArPlate();
         arCanvas.style.display = "none";
         arHud.classList.remove("show");
-        previewRenderer.setAnimationLoop(onPreviewFrame);
       });
     });
 
@@ -584,12 +577,12 @@
       try {
         if (navigator.xr && await navigator.xr.isSessionSupported("immersive-ar")) {
           arSupported = true;
-          if (placeTex) arBtn.disabled = false;
+          if (stillReady) arBtn.disabled = false;
           return;
         }
       } catch (_) {
         arSupported = true;
-        if (placeTex) arBtn.disabled = false;
+        if (stillReady) arBtn.disabled = false;
         return;
       }
       arBtn.textContent = "AR needs Chrome on Android";
