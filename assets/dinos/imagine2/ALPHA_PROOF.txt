@@ -1,0 +1,25 @@
+dinos_imagine2 alpha proof 2026-09-22 ~4:45pm ET
+Primary: play.webm = libvpx-vp9 encode yuva420p + ALPHA_MODE=1
+ffprobe often reports pix_fmt=yuv420p (probe quirk) — do NOT reject on that alone.
+PROOF: ffmpeg -c:v libvpx-vp9 -i play.webm -frames:v 1 -pix_fmt rgba prove.png
+  → corner alpha t0=[0, 0, 0, 0] mid=[0, 0, 0, 0] end=[0, 0, 0, 0] (want 0)
+  → transparent t0=82.928% mid=80.261% end=79.466%
+  → opaque FG t0=17.07% mid=19.609% end=20.486%
+Default decode WITHOUT -c:v libvpx-vp9 STRIPS alpha (false opaque/black).
+
+Clean alpha: leftover solid-green opaque (gn>40 ∧ G>80 ∧ A=255) t0/mid/end = 0.0% / 0.0% / 0.0% — no solid green leftover plate; no thick green fringe.
+Base dark-opaque gate (RGB max≤8 AND A=255 in bottom 20%): t0=0.0% mid=0.0% end=0.0006% (target ≈0 like foam3; FAIL if >0.5%).
+
+place_frame0.png RGBA transparent corners=[0, 0, 0, 0] (from open frame f_00001).
+
+Backup: play_dual.webm = dual VP9 streams (RGB + gray alphaextract). Stream1 corners=[0,0,0,0], ~82.928% transparent @t0.
+Wire MeshBasic+VideoTexture+alphaTest 0.25 on foam3/cups4 stack. Soft contact shadows → A=0.
+
+Bryan OVERRIDE (THIS plate only): dropped photoreal/CGI gate and LOOK_DOWN 20–35° gate — eye-level side-profile OK for AR wire. Key as-is; no new Imagine; milk STOPPED.
+
+KEY≈[50,145,63] hard alpha; gentle despill; RGB=0 where A<8.
+Source: ship/dinos_imagine2_imagine/motion_1.mp4 1104×816 ~15.042000s (361f @24fps). Spots t_00/t_05/t_10/t_15 used for KEY sample.
+
+Sizes: play.webm=6911206 play_dual.webm=8683514 place_frame0.png=312207
+Staged: ship/dinos_imagine2/ → Ship Yes (alpha gates PASS)
+Work: qc_dinos2/

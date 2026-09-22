@@ -61,6 +61,9 @@
     .hint { font-size: .82rem; opacity: .8; margin: 0 0 8px; line-height: 1.35; }
     #status { min-height: 1.2em; }
     #status.err { color: #a33; opacity: 1; }
+    .keyed-video {
+      position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
+    }
     #arCanvas {
       position: fixed; inset: 0; width: 100%; height: 100%;
       display: none; z-index: 40; background: #000; touch-action: none;
@@ -85,21 +88,21 @@
   <header>
     <p class="back"><a href="../">Living Lab experiments</a></p>
     <h1>Dinosaur table</h1>
-    <p>Two dinosaurs walk on the table. A pterosaur flies a circle above them. Then say why.</p>
+    <p>Place the scene on the table, then play. Two dinosaurs are there, and a pterosaur. Then say why.</p>
   </header>
 
   <p class="hint" id="arHint">
-    Tap <strong>Play</strong> to start the walk and the flight.
-    On Android Chrome, <strong>Place on table (AR)</strong> sticks them to a real table with the phone camera.
+    Tap <strong>Play</strong> to start the scene.
+    On Android Chrome, <strong>Place on table (AR)</strong> sticks it to a real table with the phone camera. Place first, then Play.
   </p>
 
-  <div class="stage" id="stage"><canvas id="view"></canvas></div>
+  <div class="stage" id="stage"><canvas id="view" aria-label="Dinosaur scene on a table"></canvas></div>
 
   <div class="btns">
     <button class="play" id="playBtn" type="button" disabled>Play</button>
     <button class="ar-cta" id="arBtn" type="button" disabled>Place on table (AR)</button>
   </div>
-  <p class="hint" id="status">Loading dinosaurs…</p>
+  <p class="hint" id="status">Loading the plate…</p>
 
   <section class="why" id="why">
     <h2>Why is the flyer different?</h2>
@@ -133,15 +136,17 @@
 
   <script type="module">
     import * as THREE from "three";
-    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-    import { clone as cloneSkeleton } from "three/addons/utils/SkeletonUtils.js";
 
-    const V = "dinos1";
-    const SPECS = [
-      { id: "rex", url: `../assets/dinos/trex.glb?v=${V}`, role: "walk", footprint: 0.24, radius: 0.12, phase: 0.2 },
-      { id: "tri", url: `../assets/dinos/triceratops.glb?v=${V}`, role: "walk", footprint: 0.18, radius: 0.2, phase: 0.2 + Math.PI },
-      { id: "ptero", url: `../assets/dinos/pterosaur.glb?v=${V}`, role: "fly", footprint: 0.32, radius: 0.15, altitude: 0.24, phase: 1.1 },
-    ];
+    const V = "imagine2";
+    const PLACE_STILL = `../assets/dinos/imagine2/place_frame0.png?v=${V}`;
+    const PLAY_WEBM = `../assets/dinos/imagine2/play.webm?v=${V}`;
+    // 1104×816 keyed plate. Width is tabletop scale; height keeps the frame aspect.
+    const PLATE_W = 0.46;
+    const PLATE_H = PLATE_W * (816 / 1104);
+    // Same foam3 / cups4 tip as volcano: 30° off the table, pivot on the near edge.
+    const LOOK_DOWN = (30 * Math.PI) / 180;
+
+    const AR = Object.freeze({ UNPLACED: "unplaced", PLACED: "placed", PLAY: "play" });
 
     const statusEl = document.getElementById("status");
     const playBtn = document.getElementById("playBtn");
@@ -158,7 +163,25 @@
     const arExitBtn = document.getElementById("arExitBtn");
     const arWhyBtn = document.getElementById("arWhyBtn");
 
-    const AR = Object.freeze({ UNPLACED: "unplaced", PLACED: "placed" });
+    let placeTex = null;
+    let previewVideo = null;
+    let previewVideoTex = null;
+    let previewMat = null;
+    let previewMesh = null;
+    let arPresenting = false;
+    let arStep = AR.UNPLACED;
+    let arRenderer = null;
+    let arScene = null;
+    let arCamera = null;
+    let reticle = null;
+    let plateRoot = null;
+    let arVideo = null;
+    let arVideoTex = null;
+    let arPlateMat = null;
+    let xrHitTestSource = null;
+    let xrRefSpace = null;
+    let xrSession = null;
+    let arSupported = false;
 
     function setStatus(msg, isErr) {
       statusEl.textContent = msg;
@@ -170,58 +193,122 @@
       quiz.classList.add("show");
     }
 
+    function setMsg(text) {
+      arMsg.textContent = text;
+    }
+
+    function canPlayWebm() {
+      const probe = document.createElement("video");
+      const t = probe.canPlayType('video/webm; codecs="vp9"');
+      return t === "probably" || t === "maybe";
+    }
+
+    function setPlateMap(mat, tex) {
+      if (!mat || !tex) return;
+      mat.map = tex;
+      mat.transparent = true;
+      mat.alphaTest = 0.25;
+      mat.needsUpdate = true;
+    }
+
+    function makePlateMaterial() {
+      return new THREE.MeshBasicMaterial({
+        transparent: true,
+        alphaTest: 0.25,
+        side: THREE.DoubleSide,
+        depthTest: true,
+        depthWrite: false,
+        opacity: 1,
+      });
+    }
+
+    function makePlateMesh(material) {
+      const geo = new THREE.PlaneGeometry(PLATE_W, PLATE_H);
+      geo.translate(0, PLATE_H / 2, 0);
+      const mesh = new THREE.Mesh(geo, material);
+      mesh.rotation.x = -Math.PI / 2 + LOOK_DOWN;
+      mesh.position.set(0, 0.004, 0);
+      mesh.renderOrder = 10;
+      mesh.frustumCulled = false;
+      return mesh;
+    }
+
+    function makeKeyedVideo() {
+      const video = document.createElement("video");
+      video.className = "keyed-video";
+      video.playsInline = true;
+      video.muted = true;
+      video.defaultMuted = true;
+      video.loop = true;
+      video.crossOrigin = "anonymous";
+      video.setAttribute("playsinline", "");
+      video.setAttribute("muted", "");
+      video.preload = "auto";
+      video.src = PLAY_WEBM;
+      document.body.appendChild(video);
+      const tex = new THREE.VideoTexture(video);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.generateMipmaps = false;
+      return { video, tex };
+    }
+
+    function playKeyed(video, tex, mat) {
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      try { video.currentTime = 0; } catch (_) {}
+      setPlateMap(mat, tex);
+      const pending = video.play();
+      if (pending && pending.catch) {
+        pending.catch(() => {
+          setStatus("This browser could not play the clip. Try Chrome.", true);
+        });
+      }
+    }
+
     const previewRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
     previewRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
-    previewRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-    previewRenderer.toneMappingExposure = 1.35;
 
     const previewScene = new THREE.Scene();
     previewScene.background = new THREE.Color(0xcfe7ff);
-    const previewCamera = new THREE.PerspectiveCamera(40, 1, 0.02, 20);
-    previewCamera.position.set(0.02, 0.3, 0.46);
-    previewCamera.lookAt(0, 0.08, 0);
+    const previewCamera = new THREE.PerspectiveCamera(38, 1, 0.05, 20);
+    // Look down onto the tipped plate so the side-profile frame reads as a tabletop card.
+    previewCamera.position.set(0, 0.78, 0.48);
+    previewCamera.lookAt(0, 0.02, -0.08);
 
-    function addLights(scene, keyIntensity) {
-      scene.add(new THREE.HemisphereLight(0xfff6ea, 0x6b5030, 1.15));
-      const dir = new THREE.DirectionalLight(0xffffff, keyIntensity);
-      dir.position.set(0.7, 1.6, 0.5);
-      scene.add(dir);
-      scene.add(new THREE.AmbientLight(0xffffff, 0.28));
-    }
-    addLights(previewScene, 1.6);
+    previewScene.add(new THREE.HemisphereLight(0xfff6ea, 0x6b5030, 1.15));
+    const previewKey = new THREE.DirectionalLight(0xffffff, 1.35);
+    previewKey.position.set(0.7, 1.6, 0.5);
+    previewScene.add(previewKey);
+    previewScene.add(new THREE.AmbientLight(0xffffff, 0.28));
 
-    const table = new THREE.Mesh(
-      new THREE.CircleGeometry(0.46, 48),
-      new THREE.MeshStandardMaterial({ color: 0xb8894e, roughness: 0.92, metalness: 0 })
-    );
-    table.rotation.x = -Math.PI / 2;
-    table.position.y = -0.001;
-    previewScene.add(table);
     const floor = new THREE.Mesh(
-      new THREE.CircleGeometry(1.4, 48),
+      new THREE.CircleGeometry(1.5, 48),
       new THREE.MeshStandardMaterial({ color: 0x8d6a3e, roughness: 1, metalness: 0 })
     );
     floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -0.004;
+    floor.position.y = -0.008;
     previewScene.add(floor);
 
-    let templates = [];
-    let previewActors = null;
-    let arActors = null;
-    let playing = false;
-    let showTime = 0;
-    let flapClock = 0;
-    let arPresenting = false;
-    let arStep = AR.UNPLACED;
-    let arRenderer = null;
-    let arScene = null;
-    let arCamera = null;
-    let reticle = null;
-    let herdRoot = null;
-    let xrHitTestSource = null;
-    let xrRefSpace = null;
-    let xrSession = null;
+    const table = new THREE.Mesh(
+      new THREE.CircleGeometry(0.62, 48),
+      new THREE.MeshStandardMaterial({ color: 0xb8894e, roughness: 0.92, metalness: 0 })
+    );
+    table.rotation.x = -Math.PI / 2;
+    table.position.y = 0;
+    previewScene.add(table);
+
+    previewMat = makePlateMaterial();
+    previewMesh = makePlateMesh(previewMat);
+    previewMesh.visible = false;
+    previewScene.add(previewMesh);
+
+    const previewKeyed = makeKeyedVideo();
+    previewVideo = previewKeyed.video;
+    previewVideoTex = previewKeyed.tex;
 
     function resizePreview() {
       const w = canvas.clientWidth;
@@ -233,172 +320,41 @@
     resizePreview();
     addEventListener("resize", resizePreview);
 
-    function findClip(animations, token) {
-      const want = token.toLowerCase();
-      return animations.find((clip) => clip.name.toLowerCase().includes(want)) || null;
-    }
-
-    function fitFootprint(model, target) {
-      model.updateMatrixWorld(true);
-      const box = new THREE.Box3().setFromObject(model);
-      const size = box.getSize(new THREE.Vector3());
-      const footprint = Math.max(size.x, size.z, 1e-4);
-      model.scale.multiplyScalar(target / footprint);
-      model.updateMatrixWorld(true);
-      const fitted = new THREE.Box3().setFromObject(model);
-      const center = fitted.getCenter(new THREE.Vector3());
-      model.position.x -= center.x;
-      model.position.z -= center.z;
-      model.updateMatrixWorld(true);
-      const probe = new THREE.Vector3();
-      let footY = Infinity;
-      model.traverse((obj) => {
-        if (!obj.name || !/foot/i.test(obj.name)) return;
-        obj.getWorldPosition(probe);
-        if (probe.y < footY) footY = probe.y;
-      });
-      if (!Number.isFinite(footY)) footY = new THREE.Box3().setFromObject(model).min.y;
-      model.position.y -= footY;
-    }
-
-    function prepareModel(model) {
-      model.traverse((obj) => {
-        if (!obj.isMesh) return;
-        obj.frustumCulled = false;
-        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-        for (const mat of mats) {
-          if (!mat) continue;
-          mat.metalness = 0;
-          if (mat.roughness < 0.45) mat.roughness = 0.55;
-        }
-      });
-    }
-
-    function spawn(template) {
-      const model = cloneSkeleton(template.gltf.scene);
-      prepareModel(model);
-      fitFootprint(model, template.spec.footprint);
-      const rig = new THREE.Group();
-      rig.add(model);
-      const mixer = new THREE.AnimationMixer(model);
-      let idle = null;
-      let walk = null;
-      if (template.spec.role === "walk") {
-        const idleClip = findClip(template.gltf.animations, "idle");
-        const walkClip = findClip(template.gltf.animations, "walk");
-        if (idleClip) idle = mixer.clipAction(idleClip);
-        if (walkClip) walk = mixer.clipAction(walkClip);
-        if (idle) idle.play();
-      }
-      return {
-        rig,
-        mixer,
-        idle,
-        walk,
-        leftWing: model.getObjectByName("LeftWing"),
-        rightWing: model.getObjectByName("RightWing"),
-        spec: template.spec,
-      };
-    }
-
-    function layoutActor(actor, moving, now) {
-      const spec = actor.spec;
-      switch (spec.role) {
-        case "walk": {
-          const angle = spec.phase + (moving ? now * 0.55 : 0);
-          const x = Math.cos(angle) * spec.radius;
-          const z = Math.sin(angle) * spec.radius * 0.72;
-          actor.rig.position.set(x, 0, z);
-          const vx = -Math.sin(angle) * spec.radius;
-          const vz = Math.cos(angle) * spec.radius * 0.72;
-          actor.rig.rotation.y = Math.atan2(vx, vz);
-          break;
-        }
-        case "fly": {
-          const angle = spec.phase + (moving ? now * 0.85 : 0);
-          const radius = moving ? spec.radius : spec.radius;
-          const x = Math.cos(angle) * radius;
-          const z = Math.sin(angle) * radius;
-          const bob = Math.sin(flapClock * 2.2) * 0.008;
-          actor.rig.position.set(x, spec.altitude + bob, z);
-          const vx = -Math.sin(angle);
-          const vz = Math.cos(angle);
-          actor.rig.rotation.y = Math.atan2(vx, vz);
-          const flap = Math.sin(flapClock * (moving ? 8.5 : 2.4)) * (moving ? 0.5 : 0.22);
-          if (actor.leftWing) actor.leftWing.rotation.z = -flap;
-          if (actor.rightWing) actor.rightWing.rotation.z = flap;
-          break;
-        }
-        default: {
-          const unexpected = spec.role;
-          throw new Error("Unknown dinosaur role: " + unexpected);
-        }
-      }
-    }
-
-    function updateActors(actors, dt) {
-      for (const actor of actors) {
-        actor.mixer.update(dt);
-        layoutActor(actor, playing, showTime);
-      }
-    }
-
-    function eachHerd(fn) {
-      if (previewActors) fn(previewActors);
-      if (arActors) fn(arActors);
-    }
-
-    function startShow() {
-      playing = true;
-      showTime = 0;
-      eachHerd((actors) => {
-        for (const actor of actors) {
-          if (!actor.walk) continue;
-          if (actor.idle) actor.idle.stop();
-          actor.walk.reset().setEffectiveWeight(1).fadeIn(0.12).play();
-        }
-      });
-      playBtn.textContent = "Replay";
-      arPlayBtn.textContent = "Replay";
-      revealLesson();
-      setStatus("They're moving. The pterosaur is the one flying above. Scroll for why and a quick check.");
-    }
-
-    function buildHerd(scene) {
-      const root = new THREE.Group();
-      const actors = [];
-      for (const template of templates) {
-        const actor = spawn(template);
-        root.add(actor.rig);
-        actors.push(actor);
-      }
-      scene.add(root);
-      if (playing) {
-        for (const actor of actors) {
-          if (!actor.walk) continue;
-          if (actor.idle) actor.idle.stop();
-          actor.walk.play();
-        }
-      }
-      updateActors(actors, 0);
-      return { root, actors };
-    }
-
-    const loader = new GLTFLoader();
-    try {
-      for (const spec of SPECS) {
-        const gltf = await loader.loadAsync(spec.url);
-        templates.push({ spec, gltf });
-      }
-      previewActors = buildHerd(previewScene).actors;
+    function markReady() {
       playBtn.disabled = false;
+      if (arSupported) arBtn.disabled = false;
       setStatus("Ready. Tap Play, or Place on table if this phone has AR.");
-    } catch (err) {
-      console.error(err);
-      setStatus("Could not load the dinosaur models. " + (err && err.message ? err.message : err), true);
     }
 
-    playBtn.addEventListener("click", () => startShow());
+    const texLoader = new THREE.TextureLoader();
+    texLoader.load(PLACE_STILL, (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.premultiplyAlpha = true;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      placeTex = tex;
+      setPlateMap(previewMat, tex);
+      previewMesh.visible = true;
+      if (arStep === AR.PLACED && arPlateMat) setPlateMap(arPlateMat, tex);
+      markReady();
+    }, undefined, () => {
+      setStatus("Could not load the dinosaur plate.", true);
+    });
+
+    function startPreviewPlay() {
+      if (!placeTex || !previewMat) return;
+      if (!canPlayWebm()) {
+        setStatus("This browser cannot play the WebM clip. Try Chrome. The still stays up.", true);
+        revealLesson();
+        return;
+      }
+      playKeyed(previewVideo, previewVideoTex, previewMat);
+      playBtn.textContent = "Replay";
+      revealLesson();
+      setStatus("Playing. The pterosaur is the one in the air. Scroll for why and a quick check.");
+    }
+
+    playBtn.addEventListener("click", () => startPreviewPlay());
 
     document.getElementById("quizForm").addEventListener("submit", (ev) => {
       ev.preventDefault();
@@ -412,11 +368,91 @@
         : "Not quite. The flyer is a pterosaur: a flying reptile, not a dinosaur and not a bird.";
     });
 
-    function setMsg(text) {
-      arMsg.textContent = text;
+    function buildArPlate() {
+      const keyed = makeKeyedVideo();
+      arVideo = keyed.video;
+      arVideoTex = keyed.tex;
+      arPlateMat = makePlateMaterial();
+      if (placeTex) setPlateMap(arPlateMat, placeTex);
+      const root = new THREE.Group();
+      root.add(makePlateMesh(arPlateMat));
+      return root;
+    }
+
+    function placeOnTable() {
+      if (!reticle || !reticle.visible) {
+        setMsg("Keep moving until the blue ring appears on the table.");
+        return;
+      }
+      disposeArPlate();
+      plateRoot = buildArPlate();
+      plateRoot.position.setFromMatrixPosition(reticle.matrix);
+      const camPos = new THREE.Vector3().setFromMatrixPosition(arCamera.matrixWorld);
+      const dx = camPos.x - plateRoot.position.x;
+      const dz = camPos.z - plateRoot.position.z;
+      plateRoot.rotation.set(0, Math.atan2(dx, dz), 0);
+      arScene.add(plateRoot);
+      reticle.visible = false;
+      arStep = AR.PLACED;
+      setMsg("Placed on the table. Tap Play.");
+    }
+
+    function startArPlay() {
+      switch (arStep) {
+        case AR.UNPLACED:
+          setMsg("Place the scene on the table first.");
+          return;
+        case AR.PLACED:
+        case AR.PLAY:
+          break;
+        default: {
+          const unexpected = arStep;
+          throw new Error("Unhandled AR step: " + unexpected);
+        }
+      }
+      if (!arVideo || !arVideoTex || !arPlateMat) {
+        setMsg("Place the scene on the table first.");
+        return;
+      }
+      if (!canPlayWebm()) {
+        setMsg("This browser cannot play the WebM clip.");
+        return;
+      }
+      playKeyed(arVideo, arVideoTex, arPlateMat);
+      arStep = AR.PLAY;
+      arPlayBtn.textContent = "Replay";
+      revealLesson();
+      setMsg("Playing on the table. The pterosaur is the one in the air.");
+    }
+
+    function disposeArPlate() {
+      if (arVideo) {
+        try { arVideo.pause(); } catch (_) {}
+        arVideo.remove();
+        arVideo = null;
+      }
+      if (arVideoTex) {
+        arVideoTex.dispose();
+        arVideoTex = null;
+      }
+      if (arPlateMat) {
+        arPlateMat.dispose();
+        arPlateMat = null;
+      }
+      if (plateRoot) {
+        plateRoot.traverse((obj) => {
+          if (obj.geometry) obj.geometry.dispose();
+        });
+        if (arScene) arScene.remove(plateRoot);
+        plateRoot = null;
+      }
     }
 
     async function startAR() {
+      if (!placeTex) {
+        setStatus("Still loading the plate.", true);
+        return;
+      }
       if (!navigator.xr) {
         setStatus("WebXR is not in this browser. Use Chrome on Android. Play still works here.", true);
         revealLesson();
@@ -428,27 +464,25 @@
         revealLesson();
         return;
       }
-      if (!templates.length) {
-        setStatus("Still loading the dinosaurs.", true);
-        return;
-      }
 
       arCanvas.style.display = "block";
       arHud.classList.add("show");
       arStep = AR.UNPLACED;
+      arPlayBtn.textContent = "Play";
       setMsg("Move the phone until the blue ring sits on the table, then tap Place.");
 
       arRenderer = new THREE.WebGLRenderer({ canvas: arCanvas, alpha: true, antialias: true });
       arRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
       arRenderer.setSize(window.innerWidth, window.innerHeight);
       arRenderer.outputColorSpace = THREE.SRGBColorSpace;
-      arRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-      arRenderer.toneMappingExposure = 1.45;
       arRenderer.xr.enabled = true;
 
       arScene = new THREE.Scene();
       arCamera = new THREE.PerspectiveCamera();
-      addLights(arScene, 1.8);
+      arScene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.1));
+      const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+      dir.position.set(1, 2, 1);
+      arScene.add(dir);
 
       reticle = new THREE.Mesh(
         new THREE.RingGeometry(0.06, 0.078, 32).rotateX(-Math.PI / 2),
@@ -458,10 +492,7 @@
       reticle.visible = false;
       arScene.add(reticle);
 
-      const built = buildHerd(arScene);
-      herdRoot = built.root;
-      arActors = built.actors;
-      herdRoot.visible = false;
+      try { previewVideo.pause(); } catch (_) {}
 
       xrSession = await navigator.xr.requestSession("immersive-ar", {
         requiredFeatures: ["hit-test"],
@@ -479,31 +510,8 @@
       xrHitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
       xrSession.addEventListener("end", onAREnd);
 
-      arPlaceBtn.onclick = () => {
-        if (!reticle.visible) {
-          setMsg("Keep moving until the blue ring appears on the table.");
-          return;
-        }
-        herdRoot.visible = true;
-        herdRoot.position.setFromMatrixPosition(reticle.matrix);
-        const camPos = new THREE.Vector3();
-        arCamera.getWorldPosition(camPos);
-        const dx = camPos.x - herdRoot.position.x;
-        const dz = camPos.z - herdRoot.position.z;
-        herdRoot.rotation.set(0, Math.atan2(dx, dz), 0);
-        reticle.visible = false;
-        arStep = AR.PLACED;
-        startShow();
-        setMsg("Placed on the table. Dinosaurs walk on it. The pterosaur flies above.");
-      };
-      arPlayBtn.onclick = () => {
-        if (arStep !== AR.PLACED) {
-          setMsg("Place them on the table first.");
-          return;
-        }
-        startShow();
-        setMsg("Replay — walk on the table, pterosaur circling above.");
-      };
+      arPlaceBtn.onclick = () => placeOnTable();
+      arPlayBtn.onclick = () => startArPlay();
       arExitBtn.onclick = () => { xrSession.end(); };
       arWhyBtn.onclick = () => { xrSession.end(); };
 
@@ -511,12 +519,6 @@
     }
 
     function onXRFrame(time, frame) {
-      const dt = Math.min(0.05, clock.getDelta());
-      flapClock += dt;
-      if (playing) showTime += dt;
-      if (previewActors) updateActors(previewActors, dt);
-      if (arActors) updateActors(arActors, dt);
-
       if (frame && xrHitTestSource && xrRefSpace && arStep === AR.UNPLACED) {
         const hits = frame.getHitTestResults(xrHitTestSource);
         if (hits.length) {
@@ -529,6 +531,7 @@
           reticle.visible = false;
         }
       }
+      if (arVideoTex && arVideo && !arVideo.paused) arVideoTex.needsUpdate = true;
       arRenderer.render(arScene, arCamera);
     }
 
@@ -541,9 +544,7 @@
       }
       arCanvas.style.display = "none";
       arHud.classList.remove("show");
-      if (herdRoot && arScene) arScene.remove(herdRoot);
-      herdRoot = null;
-      arActors = null;
+      disposeArPlate();
       if (arRenderer) {
         arRenderer.dispose();
         arRenderer = null;
@@ -555,14 +556,9 @@
       previewRenderer.setAnimationLoop(onPreviewFrame);
     }
 
-    const clock = new THREE.Clock();
-
     function onPreviewFrame() {
       if (arPresenting) return;
-      const dt = Math.min(0.05, clock.getDelta());
-      flapClock += dt;
-      if (playing) showTime += dt;
-      if (previewActors) updateActors(previewActors, dt);
+      if (previewVideoTex && previewVideo && !previewVideo.paused) previewVideoTex.needsUpdate = true;
       previewRenderer.render(previewScene, previewCamera);
     }
     previewRenderer.setAnimationLoop(onPreviewFrame);
@@ -577,8 +573,7 @@
           arRenderer.dispose();
           arRenderer = null;
         }
-        arActors = null;
-        herdRoot = null;
+        disposeArPlate();
         arCanvas.style.display = "none";
         arHud.classList.remove("show");
         previewRenderer.setAnimationLoop(onPreviewFrame);
@@ -588,11 +583,13 @@
     async function refreshArAvailability() {
       try {
         if (navigator.xr && await navigator.xr.isSessionSupported("immersive-ar")) {
-          arBtn.disabled = false;
+          arSupported = true;
+          if (placeTex) arBtn.disabled = false;
           return;
         }
       } catch (_) {
-        arBtn.disabled = false;
+        arSupported = true;
+        if (placeTex) arBtn.disabled = false;
         return;
       }
       arBtn.textContent = "AR needs Chrome on Android";
