@@ -121,8 +121,8 @@
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
     <div id="plateSlot">
-      <img id="plateStill" alt="Two dinosaurs and a pterosaur" src="../assets/dinos/imagine2/place_frame0.png?v=dinos2c">
-      <video id="clip" playsinline muted loop preload="auto" poster="../assets/dinos/imagine2/place_frame0.png?v=dinos2c"></video>
+      <img id="plateStill" alt="Two dinosaurs and a pterosaur" src="../assets/dinos/imagine2/place_frame0.png?v=dinos2d">
+      <video id="clip" playsinline muted loop preload="auto" poster="../assets/dinos/imagine2/place_frame0.png?v=dinos2d"></video>
       <canvas id="dualPlate" aria-hidden="true"></canvas>
     </div>
   </div>
@@ -165,9 +165,9 @@
 
   <script type="module">
     import * as THREE from "three";
-    import { createDualPlayback } from "../assets/dinos/dual-key.js?v=dinos2c";
+    import { createDualPlayback } from "../assets/dinos/dual-key.js?v=dinos2d";
 
-    const V = "dinos2c";
+    const V = "dinos2d";
     const PLACE_STILL = `../assets/dinos/imagine2/place_frame0.png?v=${V}`;
     const PLAY_WEBM = `../assets/dinos/imagine2/play.webm?v=${V}`;
     const PLAY_DUAL = `../assets/dinos/imagine2/play_dual.webm?v=${V}`;
@@ -472,6 +472,7 @@
       }
       disposeArPlate();
       plateRoot = buildArPlate();
+      // Position from hit-test; force upright (+Y up) — do not copy surface tilt.
       plateRoot.position.setFromMatrixPosition(reticle.matrix);
       const camPos = new THREE.Vector3().setFromMatrixPosition(arCamera.matrixWorld);
       const dx = camPos.x - plateRoot.position.x;
@@ -580,7 +581,7 @@
 
       xrSession = await navigator.xr.requestSession("immersive-ar", {
         requiredFeatures: ["hit-test"],
-        optionalFeatures: ["dom-overlay", "local-floor", "plane-detection"],
+        optionalFeatures: ["dom-overlay", "local-floor"],
         domOverlay: { root: arHud },
       });
 
@@ -606,147 +607,17 @@
       arRenderer.setAnimationLoop(onXRFrame);
     }
 
-    const reticleMatrix = new THREE.Matrix4();
-
-    function rotateByQuat(q, v) {
-      const tx = 2 * (q.y * v.z - q.z * v.y);
-      const ty = 2 * (q.z * v.x - q.x * v.z);
-      const tz = 2 * (q.x * v.y - q.y * v.x);
-      return {
-        x: v.x + q.w * tx + (q.y * tz - q.z * ty),
-        y: v.y + q.w * ty + (q.z * tx - q.x * tz),
-        z: v.z + q.w * tz + (q.x * ty - q.y * tx),
-      };
-    }
-
-    function pointInPlanePoly(x, z, polygon) {
-      if (!polygon || polygon.length < 3) return false;
-      let inside = false;
-      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const xi = polygon[i].x;
-        const zi = polygon[i].z;
-        const xj = polygon[j].x;
-        const zj = polygon[j].z;
-        const crosses = (zi > z) !== (zj > z);
-        if (crosses && x < ((xj - xi) * (z - zi)) / ((zj - zi) || 1e-9) + xi) inside = !inside;
-      }
-      return inside;
-    }
-
-    function viewerRay(frame) {
-      const viewer = frame.getViewerPose(xrRefSpace);
-      if (!viewer || !viewer.views || !viewer.views.length) return null;
-      const cam = viewer.views[0].transform;
-      const dir = rotateByQuat(cam.orientation, { x: 0, y: 0, z: -1 });
-      const p = cam.position;
-      return { ox: p.x, oy: p.y, oz: p.z, dx: dir.x, dy: dir.y, dz: dir.z };
-    }
-
-    function horizontalPlanes(frame) {
-      const found = [];
-      if (!frame.detectedPlanes) return found;
-      for (const plane of frame.detectedPlanes) {
-        if (!plane || plane.orientation !== "horizontal") continue;
-        let pose = null;
-        try { pose = frame.getPose(plane.planeSpace, xrRefSpace); } catch (_) { pose = null; }
-        if (!pose) continue;
-        const label = String(plane.semanticLabel || "").toLowerCase();
-        found.push({ plane, pose, label, y: pose.transform.position.y });
-      }
-      return found;
-    }
-
-    function tableCandidates(planes) {
-      const labeled = planes.filter((p) => p.label === "table" || p.label === "desk");
-      if (labeled.length) return labeled;
-      const floors = planes.filter((p) => p.label === "floor");
-      if (!floors.length) return [];
-      const floorY = floors.reduce((min, p) => Math.min(min, p.y), Infinity);
-      return planes.filter((p) => {
-        if (p.label === "floor" || p.label === "ceiling" || p.label === "wall") return false;
-        const above = p.y - floorY;
-        return above >= 0.45 && above <= 1.05;
-      });
-    }
-
-    function rayHitPlane(ray, entry) {
-      const q = entry.pose.transform.orientation;
-      const p = entry.pose.transform.position;
-      const n = rotateByQuat(q, { x: 0, y: 1, z: 0 });
-      const denom = n.x * ray.dx + n.y * ray.dy + n.z * ray.dz;
-      if (Math.abs(denom) < 1e-5) return null;
-      const t = ((p.x - ray.ox) * n.x + (p.y - ray.oy) * n.y + (p.z - ray.oz) * n.z) / denom;
-      if (t < 0.12 || t > 6) return null;
-      const hx = ray.ox + ray.dx * t;
-      const hy = ray.oy + ray.dy * t;
-      const hz = ray.oz + ray.dz * t;
-      const local = rotateByQuat(
-        { x: -q.x, y: -q.y, z: -q.z, w: q.w },
-        { x: hx - p.x, y: hy - p.y, z: hz - p.z }
-      );
-      const poly = entry.plane.polygon;
-      if (poly && poly.length >= 3) {
-        if (!pointInPlanePoly(local.x, local.z, poly)) return null;
-      } else {
-        const dx = hx - p.x;
-        const dz = hz - p.z;
-        if (dx * dx + dz * dz > 0.81) return null;
-      }
-      return { x: hx, y: hy, z: hz, t };
-    }
-
-    function tablePoint(frame, hitPose) {
-      const planes = tableCandidates(horizontalPlanes(frame));
-      if (!planes.length) return null;
-      const ray = viewerRay(frame);
-      if (ray) {
-        let best = null;
-        for (const entry of planes) {
-          const hit = rayHitPlane(ray, entry);
-          if (hit && (!best || hit.t < best.t)) best = hit;
-        }
-        if (best) return best;
-      }
-      if (!hitPose) return null;
-      const hp = hitPose.transform.position;
-      for (const entry of planes) {
-        const q = entry.pose.transform.orientation;
-        const p = entry.pose.transform.position;
-        const local = rotateByQuat(
-          { x: -q.x, y: -q.y, z: -q.z, w: q.w },
-          { x: hp.x - p.x, y: hp.y - p.y, z: hp.z - p.z }
-        );
-        const poly = entry.plane.polygon;
-        const inside = poly && poly.length >= 3
-          ? pointInPlanePoly(local.x, local.z, poly)
-          : (local.x * local.x + local.z * local.z) < 0.81;
-        if (!inside) continue;
-        if (entry.y < hp.y - 0.08) continue;
-        return { x: hp.x, y: entry.y, z: hp.z, t: 0 };
-      }
-      return null;
-    }
-
-    function showReticlePoint(x, y, z) {
-      reticleMatrix.makeTranslation(x, y, z);
-      reticle.visible = true;
-      reticle.matrix.copy(reticleMatrix);
-    }
-
     function onXRFrame(time, frame) {
-      if (frame && xrRefSpace && arStep === AR.UNPLACED) {
-        let pose = null;
-        if (xrHitTestSource) {
-          const hits = frame.getHitTestResults(xrHitTestSource);
-          if (hits.length) pose = hits[0].getPose(xrRefSpace);
-        }
-        const table = tablePoint(frame, pose);
-        if (table) {
-          showReticlePoint(table.x, table.y, table.z);
-        } else if (pose) {
-          reticle.visible = true;
-          reticle.matrix.fromArray(pose.transform.matrix);
-        } else {
+      if (frame && xrHitTestSource && xrRefSpace) {
+        const hitTestResults = frame.getHitTestResults(xrHitTestSource);
+        if (arStep === AR.UNPLACED && hitTestResults.length) {
+          const hit = hitTestResults[0];
+          const pose = hit.getPose(xrRefSpace);
+          if (pose) {
+            reticle.visible = true;
+            reticle.matrix.fromArray(pose.transform.matrix);
+          }
+        } else if (arStep === AR.UNPLACED) {
           reticle.visible = false;
         }
       }
