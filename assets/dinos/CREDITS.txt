@@ -1,0 +1,15 @@
+Dinosaur table models for Living Lab.
+
+trex.glb
+triceratops.glb
+  Author: Quaternius
+  Pack: Animated Dinosaur Pack (December 2018)
+  License: CC0 1.0 Universal (public domain)
+  https://creativecommons.org/publicdomain/zero/1.0/
+  https://quaternius.com/packs/animateddinosaurs.html
+  GLB conversion of that CC0 pack (walk, idle, and other clips). Solid colors, no photoreal textures.
+
+pterosaur.glb
+  Original low-poly mesh made for Living Lab (body, beak, crest, membrane wings).
+  License: CC0 1.0 Universal.
+  Not a Cut Room / Imagine video plate.
