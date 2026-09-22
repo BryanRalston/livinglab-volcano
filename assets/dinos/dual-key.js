@@ -3,7 +3,9 @@
 // Chrome on Samsung uploads the YUVA file as opaque black. This player decodes both
 // tracks and paints straight alpha into a canvas the page and the AR mesh can share.
 
-const FRAME_MS = 1000 / 24;
+// Samsung paints at 15fps. Closer frames are dropped so decode stays on that cadence.
+const PAINT_MS = 1000 / 15;
+const PAINT_US = Math.round(1e6 / 15);
 
 function readId(buf, index) {
   const b0 = buf[index];
@@ -224,6 +226,16 @@ function wait(ms) {
   });
 }
 
+function nextPaintIndex(color, alpha, index, shownTs) {
+  if (shownTs < 0 || index >= color.length) return index;
+  const minTs = shownTs + Math.round(1e6 / 20);
+  if (color[index].timestamp >= minTs) return index;
+  for (let i = index; i < color.length; i++) {
+    if (color[i].timestamp >= minTs && color[i].key && alpha[i].key) return i;
+  }
+  return index;
+}
+
 export function createDualPlayback(canvas) {
   let token = 0;
   let running = false;
@@ -245,16 +257,26 @@ export function createDualPlayback(canvas) {
     const alphaCodec = await pickCodec(["vp09.01.10.08", "vp09.00.10.08", "vp09.01.41.08", "vp9"]);
     const colorDec = openDecoder(colorCodec);
     const alphaDec = openDecoder(alphaCodec);
-    const width = 1104;
-    const height = 816;
-    canvas.width = width;
-    canvas.height = height;
-    const paint = canvas.getContext("2d", { alpha: true, willReadFrequently: false });
-    const compositor = makeCompositor(width, height);
+    let paint = null;
+    let compositor = null;
     let index = 0;
+    let shownTs = -PAINT_US;
     try {
       while (alive()) {
         const started = performance.now();
+        const landed = nextPaintIndex(color, alpha, index, shownTs);
+        if (landed !== index) {
+          await colorDec.reset();
+          await alphaDec.reset();
+          index = landed;
+        }
+        if (index >= color.length) {
+          index = 0;
+          shownTs = -PAINT_US;
+          await colorDec.reset();
+          await alphaDec.reset();
+          continue;
+        }
         const colorFrame = await colorDec.decode(color[index]);
         const alphaFrame = await alphaDec.decode(alpha[index]);
         if (!alive()) {
@@ -262,22 +284,30 @@ export function createDualPlayback(canvas) {
           alphaFrame.close();
           break;
         }
+        if (!compositor) {
+          const width = colorFrame.displayWidth || colorFrame.codedWidth;
+          const height = colorFrame.displayHeight || colorFrame.codedHeight;
+          canvas.width = width;
+          canvas.height = height;
+          paint = canvas.getContext("2d", { alpha: true, willReadFrequently: false });
+          compositor = makeCompositor(width, height);
+        }
         compositor.paint(colorFrame, alphaFrame, paint);
         colorFrame.close();
         alphaFrame.close();
+        shownTs = color[index].timestamp;
         if (ready) {
           ready();
           ready = null;
         }
-        const next = color[index + 1];
-        const gap = next ? Math.max(0, (next.timestamp - color[index].timestamp) / 1000) : FRAME_MS;
         index += 1;
         if (index >= color.length) {
           index = 0;
+          shownTs = -PAINT_US;
           await colorDec.reset();
           await alphaDec.reset();
         }
-        const leftover = gap - (performance.now() - started);
+        const leftover = PAINT_MS - (performance.now() - started);
         if (leftover > 1) await wait(leftover);
       }
     } finally {
