@@ -51,14 +51,14 @@
       transform: translateX(-50%) perspective(980px) rotateX(var(--look-down, 60deg));
       transform-origin: center bottom;
     }
-    #plateStill, #clip {
+    #plateStill, #clip, #dualPlate {
       width: 100%;
       height: auto;
       display: block;
     }
     #plateStill.hide { display: none; }
-    #clip { display: none; }
-    #clip.use-video { display: block; }
+    #clip, #dualPlate { display: none; }
+    #clip.use-video, #dualPlate.use-video { display: block; }
     .btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
     button {
       flex: 1; min-height: 48px; border: 0; border-radius: 12px;
@@ -121,8 +121,9 @@
   <div class="stage" id="stage">
     <div class="table" aria-hidden="true"></div>
     <div id="plateSlot">
-      <img id="plateStill" alt="Two dinosaurs and a pterosaur" src="../assets/dinos/imagine2/place_frame0.png?v=imagine2">
-      <video id="clip" playsinline muted loop preload="auto" poster="../assets/dinos/imagine2/place_frame0.png?v=imagine2"></video>
+      <img id="plateStill" alt="Two dinosaurs and a pterosaur" src="../assets/dinos/imagine2/place_frame0.png?v=dinos2">
+      <video id="clip" playsinline muted loop preload="auto" poster="../assets/dinos/imagine2/place_frame0.png?v=dinos2"></video>
+      <canvas id="dualPlate" aria-hidden="true"></canvas>
     </div>
   </div>
 
@@ -164,10 +165,12 @@
 
   <script type="module">
     import * as THREE from "three";
+    import { createDualPlayback } from "../assets/dinos/dual-key.js?v=dinos2";
 
-    const V = "imagine2";
+    const V = "dinos2";
     const PLACE_STILL = `../assets/dinos/imagine2/place_frame0.png?v=${V}`;
     const PLAY_WEBM = `../assets/dinos/imagine2/play.webm?v=${V}`;
+    const PLAY_DUAL = `../assets/dinos/imagine2/play_dual.webm?v=${V}`;
     const PLATE_W = 0.46;
     const PLATE_H = PLATE_W * (816 / 1104);
     const LOOK_DOWN_DEG = 30;
@@ -183,6 +186,8 @@
     const feedback = document.getElementById("feedback");
     const plateStill = document.getElementById("plateStill");
     const video = document.getElementById("clip");
+    const dualCanvas = document.getElementById("dualPlate");
+    const dualPlayback = createDualPlayback(dualCanvas);
     const plateSlot = document.getElementById("plateSlot");
     const arCanvas = document.getElementById("arCanvas");
     const arHud = document.getElementById("arHud");
@@ -207,6 +212,8 @@
     let arVideo = null;
     let arVideoTex = null;
     let arPlateMat = null;
+    let dualTex = null;
+    let useDual = false;
     let xrHitTestSource = null;
     let xrRefSpace = null;
     let xrSession = null;
@@ -224,6 +231,27 @@
     function setMsg(text) {
       arMsg.textContent = text;
     }
+
+    function wantsDualClip() {
+      const flag = new URLSearchParams(location.search).get("dual");
+      if (flag === "1") return true;
+      if (flag === "0") return false;
+      return /Samsung|SamsungBrowser|SM-[A-Z0-9]+|GT-[A-Z0-9]+/i.test(navigator.userAgent);
+    }
+
+    async function resolveDualClip() {
+      if (wantsDualClip()) return true;
+      const data = navigator.userAgentData;
+      if (!data || !data.getHighEntropyValues) return false;
+      try {
+        const hints = await data.getHighEntropyValues(["model"]);
+        return /samsung|sm-|gt-/i.test(hints.model || "");
+      } catch (_) {
+        return false;
+      }
+    }
+
+    const dualChoice = resolveDualClip();
 
     function canPlayWebm() {
       const t = video.canPlayType('video/webm; codecs="vp9"');
@@ -251,13 +279,35 @@
     video.playsInline = true;
     video.setAttribute("playsinline", "");
 
-    function startPreviewPlay() {
+    function showPlayingStatus() {
+      playBtn.textContent = "Replay";
+      revealLesson();
+      setStatus("Playing. The pterosaur is the one in the air. Scroll for why and a quick check.");
+    }
+
+    async function startDualClip() {
+      if (dualPlayback.running) dualPlayback.stop();
+      await dualPlayback.start(PLAY_DUAL);
+    }
+
+    async function startPreviewPlay() {
       if (!stillReady) return;
+      useDual = await dualChoice;
+      if (useDual) {
+        plateStill.classList.add("hide");
+        video.classList.remove("use-video");
+        try { video.pause(); } catch (_) {}
+        dualCanvas.classList.add("use-video");
+        await startDualClip();
+        showPlayingStatus();
+        return;
+      }
       if (!canPlayWebm()) {
         setStatus("This browser cannot play the WebM clip. Try Chrome. The still stays up.", true);
         revealLesson();
         return;
       }
+      dualCanvas.classList.remove("use-video");
       plateStill.classList.add("hide");
       video.classList.add("use-video");
       try { video.currentTime = 0; } catch (_) {}
@@ -267,12 +317,15 @@
           setStatus("This browser could not play the clip. Try Chrome.", true);
         });
       }
-      playBtn.textContent = "Replay";
-      revealLesson();
-      setStatus("Playing. The pterosaur is the one in the air. Scroll for why and a quick check.");
+      showPlayingStatus();
     }
 
-    playBtn.addEventListener("click", () => startPreviewPlay());
+    playBtn.addEventListener("click", () => {
+      startPreviewPlay().catch((err) => {
+        console.error(err);
+        setStatus("Could not play the clip. " + (err && err.message ? err.message : err), true);
+      });
+    });
 
     document.getElementById("quizForm").addEventListener("submit", (ev) => {
       ev.preventDefault();
@@ -363,11 +416,26 @@
       }, undefined, reject);
     });
 
+    function ensureDualTex() {
+      if (dualTex) return dualTex;
+      dualTex = new THREE.CanvasTexture(dualCanvas);
+      dualTex.colorSpace = THREE.SRGBColorSpace;
+      dualTex.minFilter = THREE.LinearFilter;
+      dualTex.magFilter = THREE.LinearFilter;
+      dualTex.generateMipmaps = false;
+      return dualTex;
+    }
+
     function buildArPlate() {
-      const keyed = makeKeyedVideo();
-      arVideo = keyed.video;
-      arVideoTex = keyed.tex;
       arPlateMat = makePlateMaterial();
+      if (useDual) {
+        arVideo = null;
+        arVideoTex = ensureDualTex();
+      } else {
+        const keyed = makeKeyedVideo();
+        arVideo = keyed.video;
+        arVideoTex = keyed.tex;
+      }
       if (placeTex) setPlateMap(arPlateMat, placeTex);
       const root = new THREE.Group();
       root.add(makePlateMesh(arPlateMat));
@@ -380,10 +448,8 @@
         arVideo.remove();
         arVideo = null;
       }
-      if (arVideoTex) {
-        arVideoTex.dispose();
-        arVideoTex = null;
-      }
+      if (arVideoTex && arVideoTex !== dualTex) arVideoTex.dispose();
+      arVideoTex = null;
       if (arPlateMat) {
         arPlateMat.dispose();
         arPlateMat = null;
@@ -415,7 +481,7 @@
       setMsg("Placed on the table. Tap Play.");
     }
 
-    function startArPlay() {
+    async function startArPlay() {
       switch (arStep) {
         case AR.UNPLACED:
           setMsg("Place the scene on the table first.");
@@ -428,15 +494,27 @@
           throw new Error("Unhandled AR step: " + unexpected);
         }
       }
-      if (!arVideo || !arVideoTex || !arPlateMat) {
+      if (!arPlateMat) {
         setMsg("Place the scene on the table first.");
         return;
       }
-      if (!canPlayWebm()) {
-        setMsg("This browser cannot play the WebM clip.");
-        return;
+      useDual = await dualChoice;
+      if (useDual) {
+        await startDualClip();
+        const tex = ensureDualTex();
+        arVideoTex = tex;
+        setPlateMap(arPlateMat, tex);
+      } else {
+        if (!arVideo || !arVideoTex) {
+          setMsg("Place the scene on the table first.");
+          return;
+        }
+        if (!canPlayWebm()) {
+          setMsg("This browser cannot play the WebM clip.");
+          return;
+        }
+        playKeyed(arVideo, arVideoTex, arPlateMat);
       }
-      playKeyed(arVideo, arVideoTex, arPlateMat);
       arStep = AR.PLAY;
       arPlayBtn.textContent = "Replay";
       revealLesson();
@@ -448,6 +526,7 @@
         setStatus("Still loading the plate.", true);
         return;
       }
+      useDual = await dualChoice;
       if (!placeTex) {
         try {
           await placeTexReady;
@@ -513,7 +592,12 @@
       xrSession.addEventListener("end", onAREnd);
 
       arPlaceBtn.onclick = () => placeOnTable();
-      arPlayBtn.onclick = () => startArPlay();
+      arPlayBtn.onclick = () => {
+        startArPlay().catch((err) => {
+          console.error(err);
+          setMsg("Could not play the clip. " + (err && err.message ? err.message : err));
+        });
+      };
       arExitBtn.onclick = () => { xrSession.end(); };
       arWhyBtn.onclick = () => { xrSession.end(); };
 
@@ -533,7 +617,8 @@
           reticle.visible = false;
         }
       }
-      if (arVideoTex && arVideo && !arVideo.paused) arVideoTex.needsUpdate = true;
+      if (useDual && dualTex && dualPlayback.running) dualTex.needsUpdate = true;
+      else if (arVideoTex && arVideo && !arVideo.paused) arVideoTex.needsUpdate = true;
       arRenderer.render(arScene, arCamera);
     }
 
